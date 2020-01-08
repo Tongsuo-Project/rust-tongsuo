@@ -1,3 +1,12 @@
+# Rust-BabaSSL
+
+This crate provides a safe interface to the popular BabaSSL cryptography library.
+BabaSSL versions 8.x are supported.
+
+This crate is based on the [rust-openssl project](https://github.com/sfackler/rust-openssl).
+
+Original README
+
 # rust-openssl
 
 [![crates.io](https://img.shields.io/crates/v/openssl.svg)](https://crates.io/crates/openssl)
