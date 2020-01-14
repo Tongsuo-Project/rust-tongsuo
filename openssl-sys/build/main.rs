@@ -24,6 +24,7 @@ enum Version {
     Openssl10x,
     Libressl,
     Boringssl,
+    BabaSSL,
 }
 
 fn env_inner(name: &str) -> Option<OsString> {
@@ -123,6 +124,7 @@ fn main() {
             Version::Openssl3xx | Version::Openssl11x if target.contains("windows-msvc") => {
                 vec!["libssl", "libcrypto"]
             }
+            Version::BabaSSL if target.contains("windows") => vec!["libssl", "libcrypto"],
             _ => vec!["ssl", "crypto"],
         },
     };
@@ -218,6 +220,7 @@ See rust-openssl documentation for more information:
     let mut enabled = vec![];
     let mut openssl_version = None;
     let mut libressl_version = None;
+    let mut babassl_version = None;
     let mut is_boringssl = false;
     for line in expanded.lines() {
         let line = line.trim();
@@ -226,6 +229,7 @@ See rust-openssl documentation for more information:
         let new_openssl_prefix = "RUST_VERSION_NEW_OPENSSL_";
         let libressl_prefix = "RUST_VERSION_LIBRESSL_";
         let boringsl_prefix = "RUST_OPENSSL_IS_BORINGSSL";
+        let babassl_prefix = "RUST_VERSION_BABASSL_";
         let conf_prefix = "RUST_CONF_";
         if let Some(version) = line.strip_prefix(openssl_prefix) {
             openssl_version = Some(parse_version(version));
@@ -235,6 +239,9 @@ See rust-openssl documentation for more information:
             libressl_version = Some(parse_version(version));
         } else if let Some(conf) = line.strip_prefix(conf_prefix) {
             enabled.push(conf);
+        } else if line.starts_with(babassl_prefix) {
+            let version = &line[babassl_prefix.len()..];
+            babassl_version = Some(parse_version(version));
         } else if line.starts_with(boringsl_prefix) {
             is_boringssl = true;
         }
@@ -255,7 +262,7 @@ See rust-openssl documentation for more information:
     // We set this for any non-BoringSSL lib.
     println!("cargo:rustc-cfg=openssl");
 
-    for cfg in cfgs::get(openssl_version, libressl_version) {
+    for cfg in cfgs::get(openssl_version, libressl_version, babassl_version) {
         println!("cargo:rustc-cfg={}", cfg);
     }
 
@@ -312,6 +319,25 @@ See rust-openssl documentation for more information:
         println!("cargo:version=101");
         Version::Libressl
     } else {
+        if let Some(babassl_version) = babassl_version {
+            println!("cargo:babassl_version_number={:x}", babassl_version);
+
+            let major = (babassl_version >> 28) as u8;
+            let minor = (babassl_version >> 20) as u8;
+            let fix = (babassl_version >> 12) as u8;
+            let (major, minor, fix) = match (major, minor, fix) {
+                (8, 0, 0) => ('8', '0', '0'),
+                (8, 0, 1) => ('8', '0', '1'),
+                (8, 0, _) => ('8', '0', 'x'),
+                (8, 1, 0) => ('8', '1', '0'),
+                (8, 1, _) => ('8', '1', 'x'),
+                _ => version_error(),
+            };
+
+            println!("cargo:babassl=true");
+            println!("cargo:babassl_version={}{}{}", major, minor, fix);
+        }
+
         let openssl_version = openssl_version.unwrap();
         println!("cargo:version_number={:x}", openssl_version);
 

@@ -35,10 +35,13 @@ fn main() {
     let libressl_version = env::var("DEP_OPENSSL_LIBRESSL_VERSION_NUMBER")
         .ok()
         .map(|v| u64::from_str_radix(&v, 16).unwrap());
+    let babassl_version = env::var("DEP_OPENSSL_BABASSL_VERSION_NUMBER")
+        .ok()
+        .map(|v| u64::from_str_radix(&v, 16).unwrap());
 
     cfg.cfg("openssl", None);
 
-    for c in cfgs::get(openssl_version, libressl_version) {
+    for c in cfgs::get(openssl_version, libressl_version, babassl_version) {
         cfg.cfg(c, None);
     }
 

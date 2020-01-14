@@ -1,5 +1,5 @@
 #[allow(clippy::unusual_byte_groupings)]
-pub fn get(openssl_version: Option<u64>, libressl_version: Option<u64>) -> Vec<&'static str> {
+pub fn get(openssl_version: Option<u64>, libressl_version: Option<u64>, babassl_version: Option<u64>) -> Vec<&'static str> {
     let mut cfgs = vec![];
 
     if let Some(libressl_version) = libressl_version {
@@ -109,6 +109,18 @@ pub fn get(openssl_version: Option<u64>, libressl_version: Option<u64>) -> Vec<&
         }
         if openssl_version >= 0x1_01_01_04_0 {
             cfgs.push("ossl111d");
+        }
+
+        // FIXME: this is very ad-hoc, address this if BabaSSL moves to OpenSSL 3.0.0
+        if let Some(babassl_version) = babassl_version {
+            cfgs.push("babassl");
+
+            if babassl_version >= 0x8_00_00_00_0 {
+                cfgs.push("babassl800");
+            }
+            if babassl_version >= 0x8_01_00_00_0 {
+                cfgs.push("babassl810");
+            }
         }
     }
 
