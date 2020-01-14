@@ -90,13 +90,17 @@ impl Cipher {
         }
     }
 
-    pub fn sm4_gcm() -> Cipher {
-        unsafe { Cipher(ffi::EVP_sm4_gcm()) }
-    }
+cfg_if! {
+    if #[cfg(babassl800)] {
+        pub fn sm4_gcm() -> Cipher {
+            unsafe { Cipher(ffi::EVP_sm4_gcm()) }
+        }
 
-    pub fn sm4_ccm() -> Cipher {
-        unsafe { Cipher(ffi::EVP_sm4_ccm()) }
+        pub fn sm4_ccm() -> Cipher {
+            unsafe { Cipher(ffi::EVP_sm4_ccm()) }
+        }
     }
+}
 
     pub fn aes_128_ecb() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_ecb()) }
@@ -1241,83 +1245,87 @@ mod tests {
         cipher_test(super::Cipher::des_ede3_cfb64(), pt, ct, key, iv);
     }
 
-    // The SM4 GCM test vector is from draft-yang-tls-tls13-sm-suites-01
-    #[test]
-    fn test_sm4_gcm() {
-        let key = "0123456789ABCDEFFEDCBA9876543210";
-        let iv = "00001234567800000000ABCD";
-        let aad = "FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2";
-        let tag = "83DE3541E4C2B58177E065A9BF7B62EC";
-        let plaintext = "AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBCCCCCCCCCCCCCCCCDDDDDDDDD\
-                         DDDDDDDEEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFFEEEEEEEEEEEEEEEEAA\
-                         AAAAAAAAAAAAAA";
-        let ciphertext = "17F399F08C67D5EE19D0DC9969C4BB7D5FD46FD3756489069157B282\
-                          BB200735D82710CA5C22F0CCFA7CBF93D496AC15A56834CBCF98C397\
-                          B4024A2691233B8D";
+cfg_if! {
+    if #[cfg(babassl800)] {
+        // The SM4 GCM test vector is from draft-yang-tls-tls13-sm-suites-01
+        #[test]
+        fn test_sm4_gcm() {
+            let key = "0123456789ABCDEFFEDCBA9876543210";
+            let iv = "00001234567800000000ABCD";
+            let aad = "FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2";
+            let tag = "83DE3541E4C2B58177E065A9BF7B62EC";
+            let plaintext = "AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBCCCCCCCCCCCCCCCCDDDDDDDDD\
+                            DDDDDDDEEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFFEEEEEEEEEEEEEEEEAA\
+                            AAAAAAAAAAAAAA";
+            let ciphertext = "17F399F08C67D5EE19D0DC9969C4BB7D5FD46FD3756489069157B282\
+                            BB200735D82710CA5C22F0CCFA7CBF93D496AC15A56834CBCF98C397\
+                            B4024A2691233B8D";
 
-        let mut actual_tag = [0; 16];
-        let out = encrypt_aead(
-            Cipher::sm4_gcm(),
-            &Vec::from_hex(key).unwrap(),
-            Some(&Vec::from_hex(iv).unwrap()),
-            &Vec::from_hex(aad).unwrap(),
-            &Vec::from_hex(plaintext).unwrap(),
-            &mut actual_tag,
-        )
-        .unwrap();
-        assert_eq!(ciphertext, hex::encode_upper(out));
-        assert_eq!(tag, hex::encode_upper(actual_tag));
+            let mut actual_tag = [0; 16];
+            let out = encrypt_aead(
+                Cipher::sm4_gcm(),
+                &Vec::from_hex(key).unwrap(),
+                Some(&Vec::from_hex(iv).unwrap()),
+                &Vec::from_hex(aad).unwrap(),
+                &Vec::from_hex(plaintext).unwrap(),
+                &mut actual_tag,
+            )
+            .unwrap();
+            assert_eq!(ciphertext, hex::encode_upper(out));
+            assert_eq!(tag, hex::encode_upper(actual_tag));
 
-        let out = decrypt_aead(
-            Cipher::sm4_gcm(),
-            &Vec::from_hex(key).unwrap(),
-            Some(&Vec::from_hex(iv).unwrap()),
-            &Vec::from_hex(aad).unwrap(),
-            &Vec::from_hex(ciphertext).unwrap(),
-            &Vec::from_hex(tag).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(plaintext, hex::encode_upper(out));
+            let out = decrypt_aead(
+                Cipher::sm4_gcm(),
+                &Vec::from_hex(key).unwrap(),
+                Some(&Vec::from_hex(iv).unwrap()),
+                &Vec::from_hex(aad).unwrap(),
+                &Vec::from_hex(ciphertext).unwrap(),
+                &Vec::from_hex(tag).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(plaintext, hex::encode_upper(out));
+        }
+
+        // The SM4 CCM test vector is from draft-yang-tls-tls13-sm-suites-01
+        #[test]
+        fn test_sm4_ccm() {
+            let key = "0123456789ABCDEFFEDCBA9876543210";
+            let nonce = "00001234567800000000ABCD";
+            let aad = "FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2";
+
+            let pt = "AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBCCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD\
+                    EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFFEEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA";
+            let ct = "48AF93501FA62ADBCD414CCE6034D895DDA1BF8F132F042098661572E7483094\
+                    FD12E518CE062C98ACEE28D95DF4416BED31A2F04476C18BB40C84A74B97DC5B";
+            let tag = "16842D4FA186F56AB33256971FA110F4";
+
+            let mut actual_tag = [0; 16];
+            let out = encrypt_aead(
+                Cipher::sm4_ccm(),
+                &Vec::from_hex(key).unwrap(),
+                Some(&Vec::from_hex(nonce).unwrap()),
+                &Vec::from_hex(aad).unwrap(),
+                &Vec::from_hex(pt).unwrap(),
+                &mut actual_tag,
+            )
+            .unwrap();
+
+            assert_eq!(ct, hex::encode_upper(out));
+            assert_eq!(tag, hex::encode_upper(actual_tag));
+
+            let out = decrypt_aead(
+                Cipher::sm4_ccm(),
+                &Vec::from_hex(key).unwrap(),
+                Some(&Vec::from_hex(nonce).unwrap()),
+                &Vec::from_hex(aad).unwrap(),
+                &Vec::from_hex(ct).unwrap(),
+                &Vec::from_hex(tag).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(pt, hex::encode_upper(out));
+        }
     }
-
-    // The SM4 GCC test vector is from draft-yang-tls-tls13-sm-suites-01
-    #[test]
-    fn test_sm4_ccm() {
-        let key = "0123456789ABCDEFFEDCBA9876543210";
-        let nonce = "00001234567800000000ABCD";
-        let aad = "FEEDFACEDEADBEEFFEEDFACEDEADBEEFABADDAD2";
-
-        let pt = "AAAAAAAAAAAAAAAABBBBBBBBBBBBBBBBCCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDD\
-                  EEEEEEEEEEEEEEEEFFFFFFFFFFFFFFFFEEEEEEEEEEEEEEEEAAAAAAAAAAAAAAAA";
-        let ct = "48AF93501FA62ADBCD414CCE6034D895DDA1BF8F132F042098661572E7483094\
-                  FD12E518CE062C98ACEE28D95DF4416BED31A2F04476C18BB40C84A74B97DC5B";
-        let tag = "16842D4FA186F56AB33256971FA110F4";
-
-        let mut actual_tag = [0; 16];
-        let out = encrypt_aead(
-            Cipher::sm4_ccm(),
-            &Vec::from_hex(key).unwrap(),
-            Some(&Vec::from_hex(nonce).unwrap()),
-            &Vec::from_hex(aad).unwrap(),
-            &Vec::from_hex(pt).unwrap(),
-            &mut actual_tag,
-        )
-        .unwrap();
-
-        assert_eq!(ct, hex::encode_upper(out));
-        assert_eq!(tag, hex::encode_upper(actual_tag));
-
-        let out = decrypt_aead(
-            Cipher::sm4_ccm(),
-            &Vec::from_hex(key).unwrap(),
-            Some(&Vec::from_hex(nonce).unwrap()),
-            &Vec::from_hex(aad).unwrap(),
-            &Vec::from_hex(ct).unwrap(),
-            &Vec::from_hex(tag).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(pt, hex::encode_upper(out));
-    }
+}
 
     #[test]
     fn test_aes128_gcm() {
