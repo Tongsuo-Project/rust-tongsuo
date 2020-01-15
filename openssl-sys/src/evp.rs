@@ -231,6 +231,8 @@ extern "C" {
     #[cfg(ossl111)]
     pub fn EVP_shake256() -> *const EVP_MD;
     pub fn EVP_ripemd160() -> *const EVP_MD;
+    pub fn EVP_sm4_gcm() -> *const EVP_CIPHER;
+    pub fn EVP_sm4_ccm() -> *const EVP_CIPHER;
     pub fn EVP_des_ecb() -> *const EVP_CIPHER;
     pub fn EVP_des_ede3() -> *const EVP_CIPHER;
     pub fn EVP_des_ede3_cbc() -> *const EVP_CIPHER;

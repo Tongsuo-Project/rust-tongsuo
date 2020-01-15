@@ -21,6 +21,7 @@ enum Version {
     Openssl11x,
     Openssl10x,
     Libressl,
+    BabaSSL,
 }
 
 fn env_inner(name: &str) -> Option<OsString> {
@@ -75,6 +76,7 @@ fn main() {
         None => match version {
             Version::Openssl10x if target.contains("windows") => vec!["ssleay32", "libeay32"],
             Version::Openssl11x if target.contains("windows") => vec!["libssl", "libcrypto"],
+            Version::BabaSSL if target.contains("windows") => vec!["libssl", "libcrypto"],
             _ => vec!["ssl", "crypto"],
         },
     };
@@ -154,11 +156,13 @@ See rust-openssl README for more information:
     let mut enabled = vec![];
     let mut openssl_version = None;
     let mut libressl_version = None;
+    let mut babassl_version = None;
     for line in expanded.lines() {
         let line = line.trim();
 
         let openssl_prefix = "RUST_VERSION_OPENSSL_";
         let libressl_prefix = "RUST_VERSION_LIBRESSL_";
+        let babassl_prefix = "RUST_VERSION_BABASSL_";
         let conf_prefix = "RUST_CONF_";
         if line.starts_with(openssl_prefix) {
             let version = &line[openssl_prefix.len()..];
@@ -166,6 +170,9 @@ See rust-openssl README for more information:
         } else if line.starts_with(libressl_prefix) {
             let version = &line[libressl_prefix.len()..];
             libressl_version = Some(parse_version(version));
+        } else if line.starts_with(babassl_prefix) {
+            let version = &line[babassl_prefix.len()..];
+            babassl_version = Some(parse_version(version));
         } else if line.starts_with(conf_prefix) {
             enabled.push(&line[conf_prefix.len()..]);
         }
@@ -176,7 +183,7 @@ See rust-openssl README for more information:
     }
     println!("cargo:conf={}", enabled.join(","));
 
-    for cfg in cfgs::get(openssl_version, libressl_version) {
+    for cfg in cfgs::get(openssl_version, libressl_version, babassl_version) {
         println!("cargo:rustc-cfg={}", cfg);
     }
 
@@ -212,6 +219,25 @@ See rust-openssl README for more information:
         println!("cargo:version=101");
         Version::Libressl
     } else {
+        if let Some(babassl_version) = babassl_version {
+            println!("cargo:babassl_version_number={:x}", babassl_version);
+
+            let major = (babassl_version >> 28) as u8;
+            let minor = (babassl_version >> 20) as u8;
+            let fix = (babassl_version >> 12) as u8;
+            let (major, minor, fix) = match (major, minor, fix) {
+                (8, 0, 0) => ('8', '0', '0'),
+                (8, 0, 1) => ('8', '0', '1'),
+                (8, 0, _) => ('8', '0', 'x'),
+                (8, 1, 0) => ('8', '1', '0'),
+                (8, 1, _) => ('8', '1', 'x'),
+                _ => version_error(),
+            };
+
+            println!("cargo:babassl=true");
+            println!("cargo:babassl_version={}{}{}", major, minor, fix);
+        }
+
         let openssl_version = openssl_version.unwrap();
         println!("cargo:version_number={:x}", openssl_version);
 
