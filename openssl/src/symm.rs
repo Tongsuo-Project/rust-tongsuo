@@ -1287,6 +1287,7 @@ cfg_if! {
         }
 
         // The SM4 CCM test vector is from draft-yang-tls-tls13-sm-suites-01
+        // TODO: Not sure yet why this does not work, need to investigate
         #[test]
         fn test_sm4_ccm() {
             let key = "0123456789ABCDEFFEDCBA9876543210";
