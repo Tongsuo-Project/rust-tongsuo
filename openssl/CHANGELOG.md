@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [v0.10.28] - 2020-02-04
+
+### Fixed
+
+* Fixed the mutability of `Signer::sign_oneshot` and `Verifier::verify_oneshot`. This is unfortunately a breaking
+    change, but a necessary soundness fix.
+
+## [v0.10.27] - 2020-01-29
+
+### Added
+
+* Added `MessageDigest::null`.
+* Added `PKey::private_key_from_pkcs8`.
+* Added `SslOptions::NO_RENEGOTIATION`.
+* Added `SslStreamBuilder::set_dtls_mtu_size`.
+
 ## [v0.10.26] - 2019-11-22
 
 ### Fixed
@@ -414,7 +430,9 @@
 
 Look at the [release tags] for information about older releases.
 
-[Unreleased]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.26...master
+[Unreleased]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.28...master
+[v0.10.28]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.27...openssl-v0.10.28
+[v0.10.27]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.26...openssl-v0.10.27
 [v0.10.26]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.25...openssl-v0.10.26
 [v0.10.25]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.24...openssl-v0.10.25
 [v0.10.24]: https://github.com/sfackler/rust-openssl/compare/openssl-v0.10.23...openssl-v0.10.24
