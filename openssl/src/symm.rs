@@ -521,7 +521,13 @@ impl Cipher {
     #[cfg(not(boringssl))]
     fn is_ccm(self) -> bool {
         // NOTE: OpenSSL returns pointers to static structs, which makes this work as expected
-        self == Cipher::aes_128_ccm() || self == Cipher::aes_256_ccm()
+        cfg_if! {
+            if #[cfg(babassl800)] {
+                return self == Cipher::aes_128_ccm() || self == Cipher::aes_256_ccm() || self == Cipher::sm4_ccm();
+            } else {
+                return self == Cipher::aes_128_ccm() || self == Cipher::aes_256_ccm();
+            }
+        }
     }
 
     #[cfg(boringssl)]
