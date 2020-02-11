@@ -98,6 +98,11 @@ impl MessageDigest {
         unsafe { MessageDigest(ffi::EVP_shake256()) }
     }
 
+    #[cfg(ossl111)]
+    pub fn sm3() -> MessageDigest {
+        unsafe { MessageDigest(ffi::EVP_sm3())}
+    }
+
     pub fn ripemd160() -> MessageDigest {
         unsafe { MessageDigest(ffi::EVP_ripemd160()) }
     }
@@ -585,6 +590,20 @@ mod tests {
 
         for test in tests.iter() {
             hash_xof_test(MessageDigest::shake_256(), test);
+        }
+    }
+
+    #[cfg(ossl111)]
+    #[test]
+    fn test_sm3() {
+        let res : &String = &"66C7F0F462EEEDD9D1F2D46BDC10E4E24167C4875CF2F7A2297DA02B8F4BA8E0".to_ascii_lowercase();
+        let tests = [(
+            "616263",
+            res.as_str()
+        )];
+
+        for test in tests.iter() {
+            hash_test(MessageDigest::sm3(), test);
         }
     }
 
