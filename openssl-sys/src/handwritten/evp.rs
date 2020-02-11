@@ -308,7 +308,9 @@ extern "C" {
     #[cfg(ossl111)]
     pub fn EVP_shake256() -> *const EVP_MD;
     pub fn EVP_ripemd160() -> *const EVP_MD;
+    #[cfg(babassl800)]
     pub fn EVP_sm4_gcm() -> *const EVP_CIPHER;
+    #[cfg(babassl800)]
     pub fn EVP_sm4_ccm() -> *const EVP_CIPHER;
     #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM3")))]
     pub fn EVP_sm3() -> *const EVP_MD;
