@@ -257,6 +257,16 @@ extern "C" {
     #[cfg(ossl111)]
     pub fn EVP_sm3() -> *const EVP_MD;
     pub fn EVP_ripemd160() -> *const EVP_MD;
+    #[cfg(ossl111)]
+    pub fn EVP_sm4_ecb() -> *const EVP_CIPHER;
+    #[cfg(ossl111)]
+    pub fn EVP_sm4_cbc() -> *const EVP_CIPHER;
+    #[cfg(ossl111)]
+    pub fn EVP_sm4_ofb() -> *const EVP_CIPHER;
+    #[cfg(ossl111)]
+    pub fn EVP_sm4_cfb128() -> *const EVP_CIPHER;
+    #[cfg(ossl111)]
+    pub fn EVP_sm4_ctr() -> *const EVP_CIPHER;
     #[cfg(babassl800)]
     pub fn EVP_sm4_gcm() -> *const EVP_CIPHER;
     #[cfg(babassl800)]
