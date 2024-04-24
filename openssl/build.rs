@@ -11,6 +11,7 @@ fn main() {
         println!("cargo:rustc-cfg=libressl");
     }
 
+<<<<<<< HEAD
     if env::var("DEP_OPENSSL_BORINGSSL").is_ok() {
         println!("cargo:rustc-cfg=boringssl");
     }
@@ -77,11 +78,19 @@ fn main() {
         }
     }
 
+    if let Ok(_) = env::var("DEP_OPENSSL_TONGSUO") {
+        println!("cargo:rustc-cfg=tongsuo");
+    } else if let Ok(_) = env::var("DEP_OPENSSL_BABASSL") {
+        println!("cargo:rustc-cfg=babassl");
+    }
+
     if let Ok(_) = env::var("DEP_OPENSSL_BABASSL") {
         println!("cargo:rustc-cfg=babassl");
     }
 
-    if let Ok(v) = env::var("DEP_OPENSSL_BABASSL_VERSION") {
+    if let Ok(v) = env::var("DEP_OPENSSL_TONGSUO_VERSION") {
+        println!("cargo:rustc-cfg=tongsuo{}", v);
+    } else if let Ok(v) = env::var("DEP_OPENSSL_BABASSL_VERSION") {
         println!("cargo:rustc-cfg=babassl{}", v);
     }
 
@@ -123,7 +132,29 @@ fn main() {
         }
     }
 
-    if let Ok(version) = env::var("DEP_OPENSSL_BABASSL_VERSION_NUMBER") {
+    if let Ok(version) = env::var("DEP_OPENSSL_TONGSUO_VERSION_NUMBER") {
+        let version = u64::from_str_radix(&version, 16).unwrap();
+
+        if version >= 0x8_00_00_00_0 {
+            println!("cargo:rustc-cfg=tongsuo800");
+        }
+
+        if version >= 0x8_01_00_00_0 {
+            println!("cargo:rustc-cfg=tongsuo810");
+        }
+
+        if version >= 0x8_02_00_00_0 {
+            println!("cargo:rustc-cfg=tongsuo820");
+        }
+
+        if version >= 0x8_03_00_00_0 {
+            println!("cargo:rustc-cfg=tongsuo830");
+        }
+
+        if version >= 0x8_04_00_00_0 {
+            println!("cargo:rustc-cfg=tongsuo840");
+        }
+    } else if let Ok(version) = env::var("DEP_OPENSSL_BABASSL_VERSION_NUMBER") {
         let version = u64::from_str_radix(&version, 16).unwrap();
 
         if version >= 0x8_00_00_00_0 {
@@ -132,6 +163,14 @@ fn main() {
 
         if version >= 0x8_01_00_00_0 {
             println!("cargo:rustc-cfg=babassl810");
+        }
+
+        if version >= 0x8_02_00_00_0 {
+            println!("cargo:rustc-cfg=babassl820");
+        }
+
+        if version >= 0x8_03_00_00_0 {
+            println!("cargo:rustc-cfg=babassl830");
         }
     }
 }

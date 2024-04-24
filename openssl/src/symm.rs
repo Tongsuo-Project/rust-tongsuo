@@ -518,7 +518,7 @@ impl Cipher {
     fn is_ccm(self) -> bool {
         // NOTE: OpenSSL returns pointers to static structs, which makes this work as expected
         cfg_if! {
-            if #[cfg(babassl800)] {
+            if #[cfg(any(babassl800, tongsuo800))] {
                 return self == Cipher::aes_128_ccm() || self == Cipher::aes_256_ccm() || self == Cipher::sm4_ccm();
             } else {
                 return self == Cipher::aes_128_ccm() || self == Cipher::aes_256_ccm();
@@ -1432,7 +1432,7 @@ mod tests {
     }
 
     cfg_if! {
-        if #[cfg(babassl800)] {
+        if #[cfg(any(babassl800, tongsuo800))] {
             // The SM4 GCM test vector is from draft-yang-tls-tls13-sm-suites-01
             #[test]
             fn test_sm4_gcm() {

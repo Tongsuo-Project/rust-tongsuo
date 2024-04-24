@@ -220,6 +220,7 @@ See rust-openssl documentation for more information:
     let mut enabled = vec![];
     let mut openssl_version = None;
     let mut libressl_version = None;
+    let mut tongsuo_version = None;
     let mut babassl_version = None;
     let mut is_boringssl = false;
     for line in expanded.lines() {
@@ -229,6 +230,7 @@ See rust-openssl documentation for more information:
         let new_openssl_prefix = "RUST_VERSION_NEW_OPENSSL_";
         let libressl_prefix = "RUST_VERSION_LIBRESSL_";
         let boringsl_prefix = "RUST_OPENSSL_IS_BORINGSSL";
+        let tongsuo_prefix = "RUST_VERSION_TONGSUO_";
         let babassl_prefix = "RUST_VERSION_BABASSL_";
         let conf_prefix = "RUST_CONF_";
         if let Some(version) = line.strip_prefix(openssl_prefix) {
@@ -242,6 +244,9 @@ See rust-openssl documentation for more information:
         } else if line.starts_with(babassl_prefix) {
             let version = &line[babassl_prefix.len()..];
             babassl_version = Some(parse_version(version));
+        } else if line.starts_with(tongsuo_prefix) {
+            let version = &line[tongsuo_prefix.len()..];
+            tongsuo_version = Some(parse_version(version));
         } else if line.starts_with(boringsl_prefix) {
             is_boringssl = true;
         }
@@ -262,7 +267,7 @@ See rust-openssl documentation for more information:
     // We set this for any non-BoringSSL lib.
     println!("cargo:rustc-cfg=openssl");
 
-    for cfg in cfgs::get(openssl_version, libressl_version, babassl_version) {
+    for cfg in cfgs::get(openssl_version, libressl_version, tongsuo_version.or(babassl_version)) {
         println!("cargo:rustc-cfg={}", cfg);
     }
 
@@ -319,7 +324,24 @@ See rust-openssl documentation for more information:
         println!("cargo:version=101");
         Version::Libressl
     } else {
-        if let Some(babassl_version) = babassl_version {
+        if let Some(tongsuo_version) = tongsuo_version {
+            println!("cargo:tongsuo_version_number={:x}", tongsuo_version);
+
+            let major = (tongsuo_version >> 28) as u8;
+            let minor = (tongsuo_version >> 20) as u8;
+            let fix = (tongsuo_version >> 12) as u8;
+            let (major, minor, fix) = match (major, minor, fix) {
+                (8, 0, 0) => ('8', '0', '0'),
+                (8, 0, 1) => ('8', '0', '1'),
+                (8, 0, _) => ('8', '0', 'x'),
+                (8, 1, 0) => ('8', '1', '0'),
+                (8, 1, _) => ('8', '1', 'x'),
+                _ => version_error(),
+            };
+
+            println!("cargo:tongsuo=true");
+            println!("cargo:tongsuo_version={}{}{}", major, minor, fix);
+        } else if let Some(babassl_version) = babassl_version {
             println!("cargo:babassl_version_number={:x}", babassl_version);
 
             let major = (babassl_version >> 28) as u8;
