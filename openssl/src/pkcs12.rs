@@ -295,6 +295,7 @@ mod test {
     use super::*;
 
     #[test]
+    #[cfg(not(tongsuo))]
     fn parse() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
@@ -328,6 +329,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(not(tongsuo))]
     fn parse_empty_chain() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();

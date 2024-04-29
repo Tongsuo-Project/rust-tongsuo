@@ -24,6 +24,7 @@ enum Version {
     Openssl10x,
     Libressl,
     Boringssl,
+    Tongsuo,
     BabaSSL,
 }
 
@@ -124,7 +125,9 @@ fn main() {
             Version::Openssl3xx | Version::Openssl11x if target.contains("windows-msvc") => {
                 vec!["libssl", "libcrypto"]
             }
-            Version::BabaSSL if target.contains("windows") => vec!["libssl", "libcrypto"],
+            Version::BabaSSL | Version::Tongsuo if target.contains("windows") => {
+                vec!["libssl", "libcrypto"]
+            }
             _ => vec!["ssl", "crypto"],
         },
     };
@@ -244,9 +247,8 @@ See rust-openssl documentation for more information:
         } else if line.starts_with(babassl_prefix) {
             let version = &line[babassl_prefix.len()..];
             babassl_version = Some(parse_version(version));
-        } else if line.starts_with(tongsuo_prefix) {
-            let version = &line[tongsuo_prefix.len()..];
-            tongsuo_version = Some(parse_version(version));
+        } else if let Some(version) = line.strip_prefix(tongsuo_prefix) {
+            tongsuo_version = Some(parse_new_version(version));
         } else if line.starts_with(boringsl_prefix) {
             is_boringssl = true;
         }
@@ -336,6 +338,15 @@ See rust-openssl documentation for more information:
                 (8, 0, _) => ('8', '0', 'x'),
                 (8, 1, 0) => ('8', '1', '0'),
                 (8, 1, _) => ('8', '1', 'x'),
+                (8, 2, 0) => ('8', '2', '0'),
+                (8, 2, 1) => ('8', '2', '1'),
+                (8, 2, _) => ('8', '2', 'x'),
+                (8, 3, 0) => ('8', '3', '0'),
+                (8, 3, 1) => ('8', '3', '1'),
+                (8, 3, _) => ('8', '3', 'x'),
+                (8, 4, 0) => ('8', '4', '0'),
+                (8, 4, 1) => ('8', '4', '1'),
+                (8, 4, _) => ('8', '4', 'x'),
                 _ => version_error(),
             };
 

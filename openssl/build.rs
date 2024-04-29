@@ -11,7 +11,6 @@ fn main() {
         println!("cargo:rustc-cfg=libressl");
     }
 
-<<<<<<< HEAD
     if env::var("DEP_OPENSSL_BORINGSSL").is_ok() {
         println!("cargo:rustc-cfg=boringssl");
     }

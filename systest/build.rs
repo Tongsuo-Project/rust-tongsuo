@@ -43,6 +43,7 @@ fn main() {
         .map(|v| u64::from_str_radix(&v, 16).unwrap());
 
     cfg.cfg("openssl", None);
+    println!("tongsuo_version: {:?}, openssl_version: {:?}", tongsuo_version, openssl_version);
 
     for c in cfgs::get(openssl_version, libressl_version, tongsuo_version.or(babassl_version)) {
         cfg.cfg(c, None);
@@ -114,6 +115,9 @@ fn main() {
         } else {
             s.to_string()
         }
+    });
+    cfg.skip_const(|s| {
+        s == "SSL_OP_CRYPTOPRO_TLSEXT_BUG"
     });
     cfg.skip_type(|s| {
         // function pointers are declared without a `*` in openssl so their

@@ -307,6 +307,7 @@ extern "C" {
     pub fn EVP_shake128() -> *const EVP_MD;
     #[cfg(ossl111)]
     pub fn EVP_shake256() -> *const EVP_MD;
+    #[cfg(not(osslconf = "OPENSSL_NO_RMD160"))]
     pub fn EVP_ripemd160() -> *const EVP_MD;
     #[cfg(babassl800)]
     pub fn EVP_sm4_gcm() -> *const EVP_CIPHER;
@@ -324,9 +325,13 @@ extern "C" {
     pub fn EVP_des_cbc() -> *const EVP_CIPHER;
     #[cfg(not(osslconf = "OPENSSL_NO_RC4"))]
     pub fn EVP_rc4() -> *const EVP_CIPHER;
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub fn EVP_bf_ecb() -> *const EVP_CIPHER;
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub fn EVP_bf_cbc() -> *const EVP_CIPHER;
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub fn EVP_bf_cfb64() -> *const EVP_CIPHER;
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub fn EVP_bf_ofb() -> *const EVP_CIPHER;
     pub fn EVP_aes_128_ecb() -> *const EVP_CIPHER;
     pub fn EVP_aes_128_cbc() -> *const EVP_CIPHER;

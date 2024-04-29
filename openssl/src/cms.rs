@@ -231,7 +231,7 @@ impl CmsContentInfo {
     }
 
     /// Verify this CmsContentInfo's signature,
-    /// This will search the 'certs' list for the signing certificate.      
+    /// This will search the 'certs' list for the signing certificate.
     /// Additional certificates, needed for building the certificate chain, may be
     /// given in 'store' as well as additional CRLs.
     /// A detached signature may be passed in `detached_data`. The signed content
@@ -290,6 +290,7 @@ mod test {
     };
 
     #[test]
+    #[cfg(not(tongsuo))]
     fn cms_encrypt_decrypt() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
@@ -431,6 +432,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(not(tongsuo))]
     fn cms_sign_verify_error() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();

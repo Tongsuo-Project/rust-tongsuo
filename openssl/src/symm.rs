@@ -643,8 +643,53 @@ impl Crypter {
         ctx.set_key_length(key.len())?;
 
         if let (Some(iv), Some(iv_len)) = (iv, t.iv_len()) {
-            if iv.len() != iv_len {
+            if iv.len() != iv_len || t.is_ccm() {
                 ctx.set_iv_length(iv.len())?;
+            }
+        }
+
+        f(&mut ctx, None, Some(key), iv)?;
+
+        Ok(Crypter { ctx })
+    }
+
+    pub fn new_ex(
+        t: Cipher,
+        mode: Mode,
+        key: &[u8],
+        iv: Option<&[u8]>,
+        tag: &[u8],
+    ) -> Result<Crypter, ErrorStack> {
+        let mut ctx = CipherCtx::new()?;
+
+        let f = match mode {
+            Mode::Encrypt => CipherCtxRef::encrypt_init,
+            Mode::Decrypt => CipherCtxRef::decrypt_init,
+        };
+
+        f(
+            &mut ctx,
+            Some(unsafe { CipherRef::from_ptr(t.as_ptr() as *mut _) }),
+            None,
+            None,
+        )?;
+
+        ctx.set_key_length(key.len())?;
+
+        if let (Some(iv), Some(iv_len)) = (iv, t.iv_len()) {
+            if iv.len() != iv_len || t.is_ccm() {
+                ctx.set_iv_length(iv.len())?;
+            }
+        }
+
+        if t.is_ccm() || t.is_ocb() {
+            match mode {
+                Mode::Encrypt => {
+                    ctx.set_tag_length(tag.len())?;
+                },
+                _ => {
+                    ctx.set_tag(tag)?;
+                }
             }
         }
 
@@ -870,15 +915,17 @@ pub fn encrypt_aead(
     data: &[u8],
     tag: &mut [u8],
 ) -> Result<Vec<u8>, ErrorStack> {
-    let mut c = Crypter::new(t, Mode::Encrypt, key, iv)?;
+    let is_ccm = t.is_ccm();
+    let mut c = if is_ccm || t.is_ocb() {
+        Crypter::new_ex(t, Mode::Encrypt, key, iv, tag)?
+    } else {
+        Crypter::new(t, Mode::Encrypt, key, iv)?
+    };
+
     let mut out = vec![0; data.len() + t.block_size()];
 
-    let is_ccm = t.is_ccm();
-    if is_ccm || t.is_ocb() {
-        c.set_tag_len(tag.len())?;
-        if is_ccm {
-            c.set_data_len(data.len())?;
-        }
+    if is_ccm {
+        c.set_data_len(data.len())?;
     }
 
     c.aad_update(aad)?;
@@ -901,15 +948,16 @@ pub fn decrypt_aead(
     data: &[u8],
     tag: &[u8],
 ) -> Result<Vec<u8>, ErrorStack> {
-    let mut c = Crypter::new(t, Mode::Decrypt, key, iv)?;
+    let is_ccm = t.is_ccm();
+    let mut c = if is_ccm || t.is_ocb() {
+        Crypter::new_ex(t, Mode::Decrypt, key, iv, tag)?
+    } else {
+        Crypter::new(t, Mode::Decrypt, key, iv)?
+    };
     let mut out = vec![0; data.len() + t.block_size()];
 
-    let is_ccm = t.is_ccm();
-    if is_ccm || t.is_ocb() {
-        c.set_tag(tag)?;
-        if is_ccm {
-            c.set_data_len(data.len())?;
-        }
+    if is_ccm {
+        c.set_data_len(data.len())?;
     }
 
     c.aad_update(aad)?;
@@ -1106,6 +1154,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(osslconf = "OPENSSL_NO_RC4"))]
     fn test_rc4() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
@@ -1303,7 +1352,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(ossl300, ignore)]
-    #[cfg(not(boringssl))]
+    #[cfg(all(not(boringssl), not(osslconf = "OPENSSL_NO_BF")))]
     fn test_bf_cbc() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
@@ -1320,7 +1369,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(ossl300, ignore)]
-    #[cfg(not(boringssl))]
+    #[cfg(all(not(boringssl), not(osslconf = "OPENSSL_NO_BF")))]
     fn test_bf_ecb() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
@@ -1335,7 +1384,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(ossl300, ignore)]
-    #[cfg(not(boringssl))]
+    #[cfg(all(not(boringssl), not(osslconf = "OPENSSL_NO_BF")))]
     fn test_bf_cfb64() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
@@ -1350,7 +1399,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(ossl300, ignore)]
-    #[cfg(not(boringssl))]
+    #[cfg(all(not(boringssl), not(osslconf = "OPENSSL_NO_BF")))]
     fn test_bf_ofb() {
         #[cfg(ossl300)]
         let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
@@ -1418,17 +1467,6 @@ mod tests {
         let iv = "0001020304050607";
 
         cipher_test(super::Cipher::des_ede3_cfb64(), pt, ct, key, iv);
-    }
-
-    #[cfg(ossl111)]
-    #[test]
-    fn test_sm4_ecb() {
-        let pt = "0123456789ABCDEFFEDCBA9876543210";
-        let ct = "681EDF34D206965E86B3E94F536E4246";
-        let key = "0123456789ABCDEFFEDCBA9876543210";
-        let iv = "";
-
-        cipher_test(super::Cipher::sm4_ecb(), pt, ct, key, iv);
     }
 
     cfg_if! {

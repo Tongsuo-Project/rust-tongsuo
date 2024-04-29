@@ -234,10 +234,15 @@ impl Nid {
     pub const WAP_WSG_IDM_ECID_WTLS10: Nid = Nid(ffi::NID_wap_wsg_idm_ecid_wtls10);
     pub const WAP_WSG_IDM_ECID_WTLS11: Nid = Nid(ffi::NID_wap_wsg_idm_ecid_wtls11);
     pub const WAP_WSG_IDM_ECID_WTLS12: Nid = Nid(ffi::NID_wap_wsg_idm_ecid_wtls12);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
     pub const CAST5_CBC: Nid = Nid(ffi::NID_cast5_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
     pub const CAST5_ECB: Nid = Nid(ffi::NID_cast5_ecb);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
     pub const CAST5_CFB64: Nid = Nid(ffi::NID_cast5_cfb64);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
     pub const CAST5_OFB64: Nid = Nid(ffi::NID_cast5_ofb64);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
     pub const PBEWITHMD5ANDCAST5_CBC: Nid = Nid(ffi::NID_pbeWithMD5AndCast5_CBC);
     pub const ID_PASSWORDBASEDMAC: Nid = Nid(ffi::NID_id_PasswordBasedMAC);
     pub const ID_DHBASEDMAC: Nid = Nid(ffi::NID_id_DHBasedMac);
@@ -245,7 +250,9 @@ impl Nid {
     pub const PKCS: Nid = Nid(ffi::NID_pkcs);
     pub const PKCS1: Nid = Nid(ffi::NID_pkcs1);
     pub const RSAENCRYPTION: Nid = Nid(ffi::NID_rsaEncryption);
+    #[cfg(not(osslconf = "OPENSSL_NO_MD2"))]
     pub const MD2WITHRSAENCRYPTION: Nid = Nid(ffi::NID_md2WithRSAEncryption);
+    #[cfg(not(osslconf = "OPENSSL_NO_MD4"))]
     pub const MD4WITHRSAENCRYPTION: Nid = Nid(ffi::NID_md4WithRSAEncryption);
     pub const MD5WITHRSAENCRYPTION: Nid = Nid(ffi::NID_md5WithRSAEncryption);
     pub const SHA1WITHRSAENCRYPTION: Nid = Nid(ffi::NID_sha1WithRSAEncryption);
@@ -259,11 +266,15 @@ impl Nid {
     pub const PKCS3: Nid = Nid(ffi::NID_pkcs3);
     pub const DHKEYAGREEMENT: Nid = Nid(ffi::NID_dhKeyAgreement);
     pub const PKCS5: Nid = Nid(ffi::NID_pkcs5);
+    #[cfg(not(osslconf = "OPENSSL_NO_MD2"))]
     pub const PBEWITHMD2ANDDES_CBC: Nid = Nid(ffi::NID_pbeWithMD2AndDES_CBC);
     pub const PBEWITHMD5ANDDES_CBC: Nid = Nid(ffi::NID_pbeWithMD5AndDES_CBC);
+    #[cfg(not(osslconf = "OPENSSL_NO_MD2"))]
     pub const PBEWITHMD2ANDRC2_CBC: Nid = Nid(ffi::NID_pbeWithMD2AndRC2_CBC);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const PBEWITHMD5ANDRC2_CBC: Nid = Nid(ffi::NID_pbeWithMD5AndRC2_CBC);
     pub const PBEWITHSHA1ANDDES_CBC: Nid = Nid(ffi::NID_pbeWithSHA1AndDES_CBC);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const PBEWITHSHA1ANDRC2_CBC: Nid = Nid(ffi::NID_pbeWithSHA1AndRC2_CBC);
     pub const ID_PBKDF2: Nid = Nid(ffi::NID_id_pbkdf2);
     pub const PBES2: Nid = Nid(ffi::NID_pbes2);
@@ -347,11 +358,14 @@ impl Nid {
     pub const ID_SMIME_AA_SIGNATURETYPE: Nid = Nid(ffi::NID_id_smime_aa_signatureType);
     pub const ID_SMIME_AA_DVCS_DVC: Nid = Nid(ffi::NID_id_smime_aa_dvcs_dvc);
     pub const ID_SMIME_ALG_ESDHWITH3DES: Nid = Nid(ffi::NID_id_smime_alg_ESDHwith3DES);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const ID_SMIME_ALG_ESDHWITHRC2: Nid = Nid(ffi::NID_id_smime_alg_ESDHwithRC2);
     pub const ID_SMIME_ALG_3DESWRAP: Nid = Nid(ffi::NID_id_smime_alg_3DESwrap);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const ID_SMIME_ALG_RC2WRAP: Nid = Nid(ffi::NID_id_smime_alg_RC2wrap);
     pub const ID_SMIME_ALG_ESDH: Nid = Nid(ffi::NID_id_smime_alg_ESDH);
     pub const ID_SMIME_ALG_CMS3DESWRAP: Nid = Nid(ffi::NID_id_smime_alg_CMS3DESwrap);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const ID_SMIME_ALG_CMSRC2WRAP: Nid = Nid(ffi::NID_id_smime_alg_CMSRC2wrap);
     pub const ID_ALG_PWRI_KEK: Nid = Nid(ffi::NID_id_alg_PWRI_KEK);
     pub const ID_SMIME_CD_LDAP: Nid = Nid(ffi::NID_id_smime_cd_ldap);
@@ -379,7 +393,9 @@ impl Nid {
         Nid(ffi::NID_pbe_WithSHA1And3_Key_TripleDES_CBC);
     pub const PBE_WITHSHA1AND2_KEY_TRIPLEDES_CBC: Nid =
         Nid(ffi::NID_pbe_WithSHA1And2_Key_TripleDES_CBC);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const PBE_WITHSHA1AND128BITRC2_CBC: Nid = Nid(ffi::NID_pbe_WithSHA1And128BitRC2_CBC);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const PBE_WITHSHA1AND40BITRC2_CBC: Nid = Nid(ffi::NID_pbe_WithSHA1And40BitRC2_CBC);
     pub const KEYBAG: Nid = Nid(ffi::NID_keyBag);
     pub const PKCS8SHROUDEDKEYBAG: Nid = Nid(ffi::NID_pkcs8ShroudedKeyBag);
@@ -387,7 +403,9 @@ impl Nid {
     pub const CRLBAG: Nid = Nid(ffi::NID_crlBag);
     pub const SECRETBAG: Nid = Nid(ffi::NID_secretBag);
     pub const SAFECONTENTSBAG: Nid = Nid(ffi::NID_safeContentsBag);
+    #[cfg(not(osslconf = "OPENSSL_NO_MD2"))]
     pub const MD2: Nid = Nid(ffi::NID_md2);
+    #[cfg(not(osslconf = "OPENSSL_NO_MD4"))]
     pub const MD4: Nid = Nid(ffi::NID_md4);
     pub const MD5: Nid = Nid(ffi::NID_md5);
     pub const MD5_SHA1: Nid = Nid(ffi::NID_md5_sha1);
@@ -397,13 +415,21 @@ impl Nid {
     pub const HMACWITHSHA256: Nid = Nid(ffi::NID_hmacWithSHA256);
     pub const HMACWITHSHA384: Nid = Nid(ffi::NID_hmacWithSHA384);
     pub const HMACWITHSHA512: Nid = Nid(ffi::NID_hmacWithSHA512);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const RC2_CBC: Nid = Nid(ffi::NID_rc2_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const RC2_ECB: Nid = Nid(ffi::NID_rc2_ecb);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const RC2_CFB64: Nid = Nid(ffi::NID_rc2_cfb64);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const RC2_OFB64: Nid = Nid(ffi::NID_rc2_ofb64);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const RC2_40_CBC: Nid = Nid(ffi::NID_rc2_40_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC2"))]
     pub const RC2_64_CBC: Nid = Nid(ffi::NID_rc2_64_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC4"))]
     pub const RC4: Nid = Nid(ffi::NID_rc4);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC4"))]
     pub const RC4_40: Nid = Nid(ffi::NID_rc4_40);
     pub const DES_EDE3_CBC: Nid = Nid(ffi::NID_des_ede3_cbc);
     pub const RC5_CBC: Nid = Nid(ffi::NID_rc5_cbc);
@@ -418,13 +444,21 @@ impl Nid {
     pub const MS_EFS: Nid = Nid(ffi::NID_ms_efs);
     pub const MS_SMARTCARD_LOGIN: Nid = Nid(ffi::NID_ms_smartcard_login);
     pub const MS_UPN: Nid = Nid(ffi::NID_ms_upn);
+    #[cfg(not(osslconf = "OPENSSL_NO_IDEA"))]
     pub const IDEA_CBC: Nid = Nid(ffi::NID_idea_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_IDEA"))]
     pub const IDEA_ECB: Nid = Nid(ffi::NID_idea_ecb);
+    #[cfg(not(osslconf = "OPENSSL_NO_IDEA"))]
     pub const IDEA_CFB64: Nid = Nid(ffi::NID_idea_cfb64);
+    #[cfg(not(osslconf = "OPENSSL_NO_IDEA"))]
     pub const IDEA_OFB64: Nid = Nid(ffi::NID_idea_ofb64);
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub const BF_CBC: Nid = Nid(ffi::NID_bf_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub const BF_ECB: Nid = Nid(ffi::NID_bf_ecb);
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub const BF_CFB64: Nid = Nid(ffi::NID_bf_cfb64);
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub const BF_OFB64: Nid = Nid(ffi::NID_bf_ofb64);
     pub const ID_PKIX: Nid = Nid(ffi::NID_id_pkix);
     pub const ID_PKIX_MOD: Nid = Nid(ffi::NID_id_pkix_mod);
@@ -592,7 +626,9 @@ impl Nid {
     pub const SHA1: Nid = Nid(ffi::NID_sha1);
     pub const DSAWITHSHA1_2: Nid = Nid(ffi::NID_dsaWithSHA1_2);
     pub const SHA1WITHRSA: Nid = Nid(ffi::NID_sha1WithRSA);
+    #[cfg(not(osslconf = "OPENSSL_NO_RIPEMD"))]
     pub const RIPEMD160: Nid = Nid(ffi::NID_ripemd160);
+    #[cfg(not(osslconf = "OPENSSL_NO_RIPEMD"))]
     pub const RIPEMD160WITHRSA: Nid = Nid(ffi::NID_ripemd160WithRSA);
     pub const SXNET: Nid = Nid(ffi::NID_sxnet);
     pub const X500: Nid = Nid(ffi::NID_X500);
@@ -653,7 +689,9 @@ impl Nid {
     pub const ROLE: Nid = Nid(ffi::NID_role);
     pub const X500ALGORITHMS: Nid = Nid(ffi::NID_X500algorithms);
     pub const RSA: Nid = Nid(ffi::NID_rsa);
+    #[cfg(not(osslconf = "OPENSSL_NO_MDC2"))]
     pub const MDC2WITHRSA: Nid = Nid(ffi::NID_mdc2WithRSA);
+    #[cfg(not(osslconf = "OPENSSL_NO_MDC2"))]
     pub const MDC2: Nid = Nid(ffi::NID_mdc2);
     pub const ID_CE: Nid = Nid(ffi::NID_id_ce);
     pub const SUBJECT_DIRECTORY_ATTRIBUTES: Nid = Nid(ffi::NID_subject_directory_attributes);
@@ -968,110 +1006,188 @@ impl Nid {
     pub const RSAOAEPENCRYPTIONSET: Nid = Nid(ffi::NID_rsaOAEPEncryptionSET);
     pub const IPSEC3: Nid = Nid(ffi::NID_ipsec3);
     pub const IPSEC4: Nid = Nid(ffi::NID_ipsec4);
+    #[cfg(not(osslconf = "OPENSSL_NO_WHIRLPOOL"))]
     pub const WHIRLPOOL: Nid = Nid(ffi::NID_whirlpool);
+    #[cfg(not(tongsuo))]
     pub const CRYPTOPRO: Nid = Nid(ffi::NID_cryptopro);
+    #[cfg(not(tongsuo))]
     pub const CRYPTOCOM: Nid = Nid(ffi::NID_cryptocom);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3411_94_WITH_GOSTR3410_2001: Nid =
         Nid(ffi::NID_id_GostR3411_94_with_GostR3410_2001);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3411_94_WITH_GOSTR3410_94: Nid =
         Nid(ffi::NID_id_GostR3411_94_with_GostR3410_94);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3411_94: Nid = Nid(ffi::NID_id_GostR3411_94);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_HMACGOSTR3411_94: Nid = Nid(ffi::NID_id_HMACGostR3411_94);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001: Nid = Nid(ffi::NID_id_GostR3410_2001);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94: Nid = Nid(ffi::NID_id_GostR3410_94);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89: Nid = Nid(ffi::NID_id_Gost28147_89);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const GOST89_CNT: Nid = Nid(ffi::NID_gost89_cnt);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_MAC: Nid = Nid(ffi::NID_id_Gost28147_89_MAC);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3411_94_PRF: Nid = Nid(ffi::NID_id_GostR3411_94_prf);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001DH: Nid = Nid(ffi::NID_id_GostR3410_2001DH);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94DH: Nid = Nid(ffi::NID_id_GostR3410_94DH);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CRYPTOPRO_KEYMESHING: Nid =
         Nid(ffi::NID_id_Gost28147_89_CryptoPro_KeyMeshing);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_NONE_KEYMESHING: Nid = Nid(ffi::NID_id_Gost28147_89_None_KeyMeshing);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3411_94_TESTPARAMSET: Nid = Nid(ffi::NID_id_GostR3411_94_TestParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3411_94_CRYPTOPROPARAMSET: Nid =
         Nid(ffi::NID_id_GostR3411_94_CryptoProParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_TESTPARAMSET: Nid = Nid(ffi::NID_id_Gost28147_89_TestParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CRYPTOPRO_A_PARAMSET: Nid =
         Nid(ffi::NID_id_Gost28147_89_CryptoPro_A_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CRYPTOPRO_B_PARAMSET: Nid =
         Nid(ffi::NID_id_Gost28147_89_CryptoPro_B_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CRYPTOPRO_C_PARAMSET: Nid =
         Nid(ffi::NID_id_Gost28147_89_CryptoPro_C_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CRYPTOPRO_D_PARAMSET: Nid =
         Nid(ffi::NID_id_Gost28147_89_CryptoPro_D_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CRYPTOPRO_OSCAR_1_1_PARAMSET: Nid =
         Nid(ffi::NID_id_Gost28147_89_CryptoPro_Oscar_1_1_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CRYPTOPRO_OSCAR_1_0_PARAMSET: Nid =
         Nid(ffi::NID_id_Gost28147_89_CryptoPro_Oscar_1_0_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CRYPTOPRO_RIC_1_PARAMSET: Nid =
         Nid(ffi::NID_id_Gost28147_89_CryptoPro_RIC_1_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_TESTPARAMSET: Nid = Nid(ffi::NID_id_GostR3410_94_TestParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_CRYPTOPRO_A_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_94_CryptoPro_A_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_CRYPTOPRO_B_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_94_CryptoPro_B_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_CRYPTOPRO_C_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_94_CryptoPro_C_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_CRYPTOPRO_D_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_94_CryptoPro_D_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_CRYPTOPRO_XCHA_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_94_CryptoPro_XchA_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_CRYPTOPRO_XCHB_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_94_CryptoPro_XchB_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_CRYPTOPRO_XCHC_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_94_CryptoPro_XchC_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001_TESTPARAMSET: Nid = Nid(ffi::NID_id_GostR3410_2001_TestParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001_CRYPTOPRO_A_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_2001_CryptoPro_A_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001_CRYPTOPRO_B_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_2001_CryptoPro_B_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001_CRYPTOPRO_C_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_2001_CryptoPro_C_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001_CRYPTOPRO_XCHA_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_2001_CryptoPro_XchA_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001_CRYPTOPRO_XCHB_PARAMSET: Nid =
         Nid(ffi::NID_id_GostR3410_2001_CryptoPro_XchB_ParamSet);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_A: Nid = Nid(ffi::NID_id_GostR3410_94_a);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_ABIS: Nid = Nid(ffi::NID_id_GostR3410_94_aBis);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_B: Nid = Nid(ffi::NID_id_GostR3410_94_b);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_BBIS: Nid = Nid(ffi::NID_id_GostR3410_94_bBis);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOST28147_89_CC: Nid = Nid(ffi::NID_id_Gost28147_89_cc);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_94_CC: Nid = Nid(ffi::NID_id_GostR3410_94_cc);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001_CC: Nid = Nid(ffi::NID_id_GostR3410_2001_cc);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3411_94_WITH_GOSTR3410_94_CC: Nid =
         Nid(ffi::NID_id_GostR3411_94_with_GostR3410_94_cc);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3411_94_WITH_GOSTR3410_2001_CC: Nid =
         Nid(ffi::NID_id_GostR3411_94_with_GostR3410_2001_cc);
+    #[cfg(not(osslconf = "OPENSSL_NO_GOST"))]
     pub const ID_GOSTR3410_2001_PARAMSET_CC: Nid = Nid(ffi::NID_id_GostR3410_2001_ParamSet_cc);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_128_CBC: Nid = Nid(ffi::NID_camellia_128_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_192_CBC: Nid = Nid(ffi::NID_camellia_192_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_256_CBC: Nid = Nid(ffi::NID_camellia_256_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const ID_CAMELLIA128_WRAP: Nid = Nid(ffi::NID_id_camellia128_wrap);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const ID_CAMELLIA192_WRAP: Nid = Nid(ffi::NID_id_camellia192_wrap);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const ID_CAMELLIA256_WRAP: Nid = Nid(ffi::NID_id_camellia256_wrap);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_128_ECB: Nid = Nid(ffi::NID_camellia_128_ecb);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_128_OFB128: Nid = Nid(ffi::NID_camellia_128_ofb128);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_128_CFB128: Nid = Nid(ffi::NID_camellia_128_cfb128);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_192_ECB: Nid = Nid(ffi::NID_camellia_192_ecb);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_192_OFB128: Nid = Nid(ffi::NID_camellia_192_ofb128);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_192_CFB128: Nid = Nid(ffi::NID_camellia_192_cfb128);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_256_ECB: Nid = Nid(ffi::NID_camellia_256_ecb);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_256_OFB128: Nid = Nid(ffi::NID_camellia_256_ofb128);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_256_CFB128: Nid = Nid(ffi::NID_camellia_256_cfb128);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_128_CFB1: Nid = Nid(ffi::NID_camellia_128_cfb1);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_192_CFB1: Nid = Nid(ffi::NID_camellia_192_cfb1);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_256_CFB1: Nid = Nid(ffi::NID_camellia_256_cfb1);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_128_CFB8: Nid = Nid(ffi::NID_camellia_128_cfb8);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_192_CFB8: Nid = Nid(ffi::NID_camellia_192_cfb8);
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
     pub const CAMELLIA_256_CFB8: Nid = Nid(ffi::NID_camellia_256_cfb8);
+    #[cfg(not(tongsuo))]
     pub const KISA: Nid = Nid(ffi::NID_kisa);
+    #[cfg(not(osslconf = "OPENSSL_NO_SEED"))]
     pub const SEED_ECB: Nid = Nid(ffi::NID_seed_ecb);
+    #[cfg(not(osslconf = "OPENSSL_NO_SEED"))]
     pub const SEED_CBC: Nid = Nid(ffi::NID_seed_cbc);
+    #[cfg(not(osslconf = "OPENSSL_NO_SEED"))]
     pub const SEED_CFB128: Nid = Nid(ffi::NID_seed_cfb128);
+    #[cfg(not(osslconf = "OPENSSL_NO_SEED"))]
     pub const SEED_OFB128: Nid = Nid(ffi::NID_seed_ofb128);
     pub const HMAC: Nid = Nid(ffi::NID_hmac);
     pub const CMAC: Nid = Nid(ffi::NID_cmac);
+    #[cfg(not(osslconf = "OPENSSL_NO_RC4"))]
     pub const RC4_HMAC_MD5: Nid = Nid(ffi::NID_rc4_hmac_md5);
     pub const AES_128_CBC_HMAC_SHA1: Nid = Nid(ffi::NID_aes_128_cbc_hmac_sha1);
     pub const AES_192_CBC_HMAC_SHA1: Nid = Nid(ffi::NID_aes_192_cbc_hmac_sha1);
