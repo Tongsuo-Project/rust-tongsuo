@@ -93,6 +93,10 @@ fn main() {
         println!("cargo:rustc-cfg=babassl{}", v);
     }
 
+    if let Ok(v) = env::var("DEP_OPENSSL_BABASSL_VERSION") {
+        println!("cargo:rustc-cfg=babassl{}", v);
+    }
+
     if let Ok(vars) = env::var("DEP_OPENSSL_CONF") {
         for var in vars.split(',') {
             println!("cargo:rustc-cfg=osslconf=\"{}\"", var);
@@ -170,6 +174,18 @@ fn main() {
 
         if version >= 0x8_03_00_00_0 {
             println!("cargo:rustc-cfg=babassl830");
+        }
+    }
+
+    if let Ok(version) = env::var("DEP_OPENSSL_BABASSL_VERSION_NUMBER") {
+        let version = u64::from_str_radix(&version, 16).unwrap();
+
+        if version >= 0x8_00_00_00_0 {
+            println!("cargo:rustc-cfg=babassl800");
+        }
+
+        if version >= 0x8_01_00_00_0 {
+            println!("cargo:rustc-cfg=babassl810");
         }
     }
 }
