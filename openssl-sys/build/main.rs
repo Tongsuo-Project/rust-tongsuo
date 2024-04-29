@@ -24,8 +24,6 @@ enum Version {
     Openssl10x,
     Libressl,
     Boringssl,
-    Tongsuo,
-    BabaSSL,
 }
 
 fn env_inner(name: &str) -> Option<OsString> {
@@ -123,9 +121,6 @@ fn main() {
         None => match version {
             Version::Openssl10x if target.contains("windows") => vec!["ssleay32", "libeay32"],
             Version::Openssl3xx | Version::Openssl11x if target.contains("windows-msvc") => {
-                vec!["libssl", "libcrypto"]
-            }
-            Version::BabaSSL | Version::Tongsuo if target.contains("windows") => {
                 vec!["libssl", "libcrypto"]
             }
             _ => vec!["ssl", "crypto"],
