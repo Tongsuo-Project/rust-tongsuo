@@ -1,21 +1,18 @@
 //! Base64 encoding support.
-use cvt_n;
-use error::ErrorStack;
-use ffi;
+use crate::error::ErrorStack;
+use crate::{cvt_n, LenType};
 use libc::c_int;
+use openssl_macros::corresponds;
 
 /// Encodes a slice of bytes to a base64 string.
-///
-/// This corresponds to [`EVP_EncodeBlock`].
 ///
 /// # Panics
 ///
 /// Panics if the input length or computed output length overflow a signed C integer.
-///
-/// [`EVP_EncodeBlock`]: https://www.openssl.org/docs/man1.1.1/man3/EVP_DecodeBlock.html
+#[corresponds(EVP_EncodeBlock)]
 pub fn encode_block(src: &[u8]) -> String {
     assert!(src.len() <= c_int::max_value() as usize);
-    let src_len = src.len() as c_int;
+    let src_len = src.len() as LenType;
 
     let len = encoded_len(src_len).unwrap();
     let mut out = Vec::with_capacity(len as usize);
@@ -33,18 +30,20 @@ pub fn encode_block(src: &[u8]) -> String {
 
 /// Decodes a base64-encoded string to bytes.
 ///
-/// This corresponds to [`EVP_DecodeBlock`].
-///
 /// # Panics
 ///
 /// Panics if the input length or computed output length overflow a signed C integer.
-///
-/// [`EVP_DecodeBlock`]: https://www.openssl.org/docs/man1.1.1/man3/EVP_DecodeBlock.html
+#[corresponds(EVP_DecodeBlock)]
 pub fn decode_block(src: &str) -> Result<Vec<u8>, ErrorStack> {
     let src = src.trim();
 
+    // https://github.com/openssl/openssl/issues/12143
+    if src.is_empty() {
+        return Ok(vec![]);
+    }
+
     assert!(src.len() <= c_int::max_value() as usize);
-    let src_len = src.len() as c_int;
+    let src_len = src.len() as LenType;
 
     let len = decoded_len(src_len).unwrap();
     let mut out = Vec::with_capacity(len as usize);
@@ -63,7 +62,7 @@ pub fn decode_block(src: &str) -> Result<Vec<u8>, ErrorStack> {
         out.set_len(out_len as usize);
     }
 
-    if src.ends_with("=") {
+    if src.ends_with('=') {
         out.pop();
         if src.ends_with("==") {
             out.pop();
@@ -73,7 +72,7 @@ pub fn decode_block(src: &str) -> Result<Vec<u8>, ErrorStack> {
     Ok(out)
 }
 
-fn encoded_len(src_len: c_int) -> Option<c_int> {
+fn encoded_len(src_len: LenType) -> Option<LenType> {
     let mut len = (src_len / 3).checked_mul(4)?;
 
     if src_len % 3 != 0 {
@@ -85,7 +84,7 @@ fn encoded_len(src_len: c_int) -> Option<c_int> {
     Some(len)
 }
 
-fn decoded_len(src_len: c_int) -> Option<c_int> {
+fn decoded_len(src_len: LenType) -> Option<LenType> {
     let mut len = (src_len / 4).checked_mul(3)?;
 
     if src_len % 4 != 0 {

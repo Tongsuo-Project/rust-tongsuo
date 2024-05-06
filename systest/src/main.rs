@@ -1,7 +1,4 @@
-#![allow(bad_style)]
-
-extern crate libc;
-extern crate openssl_sys;
+#![allow(bad_style, deprecated, clippy::all)]
 
 use libc::*;
 use openssl_sys::*;

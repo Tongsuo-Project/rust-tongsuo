@@ -1,18 +1,18 @@
+use cfg_if::cfg_if;
 use ffi::{
     self, BIO_clear_retry_flags, BIO_new, BIO_set_retry_read, BIO_set_retry_write, BIO,
-    BIO_CTRL_FLUSH, BIO_CTRL_DGRAM_QUERY_MTU,
+    BIO_CTRL_DGRAM_QUERY_MTU, BIO_CTRL_FLUSH,
 };
 use libc::{c_char, c_int, c_long, c_void, strlen};
 use std::any::Any;
 use std::io;
 use std::io::prelude::*;
-use std::mem;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 use std::slice;
 
-use cvt_p;
-use error::ErrorStack;
+use crate::cvt_p;
+use crate::error::ErrorStack;
 
 pub struct StreamState<S> {
     pub stream: S,
@@ -21,12 +21,12 @@ pub struct StreamState<S> {
     pub dtls_mtu_size: c_long,
 }
 
-/// Safe wrapper for BIO_METHOD
+/// Safe wrapper for `BIO_METHOD`
 pub struct BioMethod(BIO_METHOD);
 
 impl BioMethod {
-    fn new<S: Read + Write>() -> BioMethod {
-        BioMethod(BIO_METHOD::new::<S>())
+    fn new<S: Read + Write>() -> Result<BioMethod, ErrorStack> {
+        BIO_METHOD::new::<S>().map(BioMethod)
     }
 }
 
@@ -34,10 +34,10 @@ unsafe impl Sync for BioMethod {}
 unsafe impl Send for BioMethod {}
 
 pub fn new<S: Read + Write>(stream: S) -> Result<(*mut BIO, BioMethod), ErrorStack> {
-    let method = BioMethod::new::<S>();
+    let method = BioMethod::new::<S>()?;
 
     let state = Box::new(StreamState {
-        stream: stream,
+        stream,
         error: None,
         panic: None,
         dtls_mtu_size: 0,
@@ -48,7 +48,7 @@ pub fn new<S: Read + Write>(stream: S) -> Result<(*mut BIO, BioMethod), ErrorSta
         BIO_set_data(bio, Box::into_raw(state) as *mut _);
         BIO_set_init(bio, 1);
 
-        return Ok((bio, method));
+        Ok((bio, method))
     }
 }
 
@@ -63,7 +63,7 @@ pub unsafe fn take_panic<S>(bio: *mut BIO) -> Option<Box<dyn Any + Send>> {
 }
 
 pub unsafe fn get_ref<'a, S: 'a>(bio: *mut BIO) -> &'a S {
-    let state: &'a StreamState<S> = mem::transmute(BIO_get_data(bio));
+    let state = &*(BIO_get_data(bio) as *const StreamState<S>);
     &state.stream
 }
 
@@ -73,7 +73,10 @@ pub unsafe fn get_mut<'a, S: 'a>(bio: *mut BIO) -> &'a mut S {
 
 pub unsafe fn set_dtls_mtu_size<S>(bio: *mut BIO, mtu_size: usize) {
     if mtu_size as u64 > c_long::max_value() as u64 {
-        panic!("Given MTU size {} can't be represented in a positive `c_long` range")
+        panic!(
+            "Given MTU size {} can't be represented in a positive `c_long` range",
+            mtu_size
+        )
     }
     state::<S>(bio).dtls_mtu_size = mtu_size as c_long;
 }
@@ -126,6 +129,7 @@ unsafe extern "C" fn bread<S: Read>(bio: *mut BIO, buf: *mut c_char, len: c_int)
     }
 }
 
+#[allow(clippy::match_like_matches_macro)] // matches macro requires rust 1.42.0
 fn retriable_error(err: &io::Error) -> bool {
     match err.kind() {
         io::ErrorKind::WouldBlock | io::ErrorKind::NotConnected => true,
@@ -179,7 +183,7 @@ unsafe extern "C" fn destroy<S>(bio: *mut BIO) -> c_int {
 
     let data = BIO_get_data(bio);
     assert!(!data.is_null());
-    Box::<StreamState<S>>::from_raw(data as *mut _);
+    let _ = Box::<StreamState<S>>::from_raw(data as *mut _);
     BIO_set_data(bio, ptr::null_mut());
     BIO_set_init(bio, 0);
     1
@@ -188,26 +192,26 @@ unsafe extern "C" fn destroy<S>(bio: *mut BIO) -> c_int {
 cfg_if! {
     if #[cfg(any(ossl110, libressl273))] {
         use ffi::{BIO_get_data, BIO_set_data, BIO_set_flags, BIO_set_init};
+        use crate::cvt;
 
         #[allow(bad_style)]
         unsafe fn BIO_set_num(_bio: *mut ffi::BIO, _num: c_int) {}
 
-        #[allow(bad_style)]
+        #[allow(bad_style, clippy::upper_case_acronyms)]
         struct BIO_METHOD(*mut ffi::BIO_METHOD);
 
         impl BIO_METHOD {
-            fn new<S: Read + Write>() -> BIO_METHOD {
+            fn new<S: Read + Write>() -> Result<BIO_METHOD, ErrorStack> {
                 unsafe {
-                    let ptr = ffi::BIO_meth_new(ffi::BIO_TYPE_NONE, b"rust\0".as_ptr() as *const _);
-                    assert!(!ptr.is_null());
-                    let ret = BIO_METHOD(ptr);
-                    assert!(ffi::BIO_meth_set_write(ptr, bwrite::<S>) != 0);
-                    assert!(ffi::BIO_meth_set_read(ptr, bread::<S>) != 0);
-                    assert!(ffi::BIO_meth_set_puts(ptr, bputs::<S>) != 0);
-                    assert!(ffi::BIO_meth_set_ctrl(ptr, ctrl::<S>) != 0);
-                    assert!(ffi::BIO_meth_set_create(ptr, create) != 0);
-                    assert!(ffi::BIO_meth_set_destroy(ptr, destroy::<S>) != 0);
-                    return ret;
+                    let ptr = cvt_p(ffi::BIO_meth_new(ffi::BIO_TYPE_NONE, b"rust\0".as_ptr() as *const _))?;
+                    let method = BIO_METHOD(ptr);
+                    cvt(ffi::BIO_meth_set_write__fixed_rust(method.0, Some(bwrite::<S>)))?;
+                    cvt(ffi::BIO_meth_set_read__fixed_rust(method.0, Some(bread::<S>)))?;
+                    cvt(ffi::BIO_meth_set_puts__fixed_rust(method.0, Some(bputs::<S>)))?;
+                    cvt(ffi::BIO_meth_set_ctrl__fixed_rust(method.0, Some(ctrl::<S>)))?;
+                    cvt(ffi::BIO_meth_set_create__fixed_rust(method.0, Some(create)))?;
+                    cvt(ffi::BIO_meth_set_destroy__fixed_rust(method.0, Some(destroy::<S>)))?;
+                    Ok(method)
                 }
             }
 
@@ -224,11 +228,11 @@ cfg_if! {
             }
         }
     } else {
-        #[allow(bad_style)]
+        #[allow(bad_style, clippy::upper_case_acronyms)]
         struct BIO_METHOD(*mut ffi::BIO_METHOD);
 
         impl BIO_METHOD {
-            fn new<S: Read + Write>() -> BIO_METHOD {
+            fn new<S: Read + Write>() -> Result<BIO_METHOD, ErrorStack> {
                 let ptr = Box::new(ffi::BIO_METHOD {
                     type_: ffi::BIO_TYPE_NONE,
                     name: b"rust\0".as_ptr() as *const _,
@@ -242,7 +246,7 @@ cfg_if! {
                     callback_ctrl: None,
                 });
 
-                BIO_METHOD(Box::into_raw(ptr))
+                Ok(BIO_METHOD(Box::into_raw(ptr)))
             }
 
             fn get(&self) -> *mut ffi::BIO_METHOD {
@@ -253,7 +257,7 @@ cfg_if! {
         impl Drop for BIO_METHOD {
             fn drop(&mut self) {
                 unsafe {
-                    Box::<ffi::BIO_METHOD>::from_raw(self.0);
+                    let _ = Box::<ffi::BIO_METHOD>::from_raw(self.0);
                 }
             }
         }

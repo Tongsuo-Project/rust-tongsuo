@@ -1,4 +1,5 @@
-pub fn get(openssl_version: Option<u64>, libressl_version: Option<u64>, babassl_version: Option<u64>) -> Vec<&'static str> {
+#[allow(clippy::unusual_byte_groupings)]
+pub fn get(openssl_version: Option<u64>, libressl_version: Option<u64>, tongsuo_version: Option<u64>) -> Vec<&'static str> {
     let mut cfgs = vec![];
 
     if let Some(libressl_version) = libressl_version {
@@ -6,6 +7,9 @@ pub fn get(openssl_version: Option<u64>, libressl_version: Option<u64>, babassl_
 
         if libressl_version >= 0x2_05_01_00_0 {
             cfgs.push("libressl251");
+        }
+        if libressl_version >= 0x2_05_02_00_0 {
+            cfgs.push("libressl252");
         }
         if libressl_version >= 0x2_06_01_00_0 {
             cfgs.push("libressl261");
@@ -28,9 +32,48 @@ pub fn get(openssl_version: Option<u64>, libressl_version: Option<u64>, babassl_
         if libressl_version >= 0x2_09_01_00_0 {
             cfgs.push("libressl291");
         }
+        if libressl_version >= 0x3_01_00_00_0 {
+            cfgs.push("libressl310");
+        }
+        if libressl_version >= 0x3_02_01_00_0 {
+            cfgs.push("libressl321");
+        }
+        if libressl_version >= 0x3_03_02_00_0 {
+            cfgs.push("libressl332");
+        }
+        if libressl_version >= 0x3_04_00_00_0 {
+            cfgs.push("libressl340");
+        }
+        if libressl_version >= 0x3_05_00_00_0 {
+            cfgs.push("libressl350");
+        }
+        if libressl_version >= 0x3_06_00_00_0 {
+            cfgs.push("libressl360");
+        }
+        if libressl_version >= 0x3_07_00_00_0 {
+            cfgs.push("libressl370");
+        }
+        if libressl_version >= 0x3_08_00_00_0 {
+            cfgs.push("libressl380");
+        }
+        if libressl_version >= 0x3_08_01_00_0 {
+            cfgs.push("libressl381");
+        }
+        if libressl_version >= 0x3_08_02_00_0 {
+            cfgs.push("libressl382");
+        }
+        if libressl_version >= 0x3_09_00_00_0 {
+            cfgs.push("libressl390");
+        }
     } else {
         let openssl_version = openssl_version.unwrap();
 
+        if openssl_version >= 0x3_02_00_00_0 {
+            cfgs.push("ossl320");
+        }
+        if openssl_version >= 0x3_00_00_00_0 {
+            cfgs.push("ossl300");
+        }
         if openssl_version >= 0x1_00_01_00_0 {
             cfgs.push("ossl101");
         }
@@ -64,16 +107,36 @@ pub fn get(openssl_version: Option<u64>, libressl_version: Option<u64>, babassl_
         if openssl_version >= 0x1_01_01_03_0 {
             cfgs.push("ossl111c");
         }
+        if openssl_version >= 0x1_01_01_04_0 {
+            cfgs.push("ossl111d");
+        }
 
         // FIXME: this is very ad-hoc, address this if BabaSSL moves to OpenSSL 3.0.0
-        if let Some(babassl_version) = babassl_version {
-            cfgs.push("babassl");
+        if let Some(tongsuo_version) = tongsuo_version {
+            cfgs.push("tongsuo");
 
-            if babassl_version >= 0x8_00_00_00_0 {
-                cfgs.push("babassl800");
+            if tongsuo_version >= 0x8_00_00_00_0 && tongsuo_version < 0x8_04_00_00_0 {
+                cfgs.push("babassl");
             }
-            if babassl_version >= 0x8_01_00_00_0 {
+
+            if tongsuo_version >= 0x8_00_00_00_0 {
+                cfgs.push("babassl800");
+                cfgs.push("tongsuo800");
+            }
+            if tongsuo_version >= 0x8_01_00_00_0 {
                 cfgs.push("babassl810");
+                cfgs.push("tongsuo810");
+            }
+            if tongsuo_version >= 0x8_02_00_00_0 {
+                cfgs.push("babassl820");
+                cfgs.push("tongsuo820");
+            }
+            if tongsuo_version >= 0x8_03_00_00_0 {
+                cfgs.push("babassl830");
+                cfgs.push("tongsuo830");
+            }
+            if tongsuo_version >= 0x8_04_00_00_0 {
+                cfgs.push("tongsuo840");
             }
         }
     }

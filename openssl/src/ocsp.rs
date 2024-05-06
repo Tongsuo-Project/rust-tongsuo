@@ -1,18 +1,22 @@
-use ffi;
+use bitflags::bitflags;
 use foreign_types::ForeignTypeRef;
 use libc::{c_int, c_long, c_ulong};
 use std::mem;
 use std::ptr;
 
-use asn1::Asn1GeneralizedTimeRef;
-use error::ErrorStack;
-use hash::MessageDigest;
-use stack::StackRef;
-use x509::store::X509StoreRef;
-use x509::{X509Ref, X509};
-use {cvt, cvt_p};
+use crate::asn1::Asn1GeneralizedTimeRef;
+use crate::error::ErrorStack;
+use crate::hash::MessageDigest;
+use crate::stack::StackRef;
+use crate::util::ForeignTypeRefExt;
+use crate::x509::store::X509StoreRef;
+use crate::x509::{X509Ref, X509};
+use crate::{cvt, cvt_p};
+use openssl_macros::corresponds;
 
 bitflags! {
+    #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    #[repr(transparent)]
     pub struct OcspFlag: c_ulong {
         const NO_CERTS = ffi::OCSP_NOCERTS;
         const NO_INTERN = ffi::OCSP_NOINTERN;
@@ -32,14 +36,6 @@ bitflags! {
 pub struct OcspResponseStatus(c_int);
 
 impl OcspResponseStatus {
-    pub fn from_raw(raw: c_int) -> OcspResponseStatus {
-        OcspResponseStatus(raw)
-    }
-
-    pub fn as_raw(&self) -> c_int {
-        self.0
-    }
-
     pub const SUCCESSFUL: OcspResponseStatus =
         OcspResponseStatus(ffi::OCSP_RESPONSE_STATUS_SUCCESSFUL);
     pub const MALFORMED_REQUEST: OcspResponseStatus =
@@ -52,37 +48,39 @@ impl OcspResponseStatus {
         OcspResponseStatus(ffi::OCSP_RESPONSE_STATUS_SIGREQUIRED);
     pub const UNAUTHORIZED: OcspResponseStatus =
         OcspResponseStatus(ffi::OCSP_RESPONSE_STATUS_UNAUTHORIZED);
+
+    pub fn from_raw(raw: c_int) -> OcspResponseStatus {
+        OcspResponseStatus(raw)
+    }
+
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    pub fn as_raw(&self) -> c_int {
+        self.0
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct OcspCertStatus(c_int);
 
 impl OcspCertStatus {
+    pub const GOOD: OcspCertStatus = OcspCertStatus(ffi::V_OCSP_CERTSTATUS_GOOD);
+    pub const REVOKED: OcspCertStatus = OcspCertStatus(ffi::V_OCSP_CERTSTATUS_REVOKED);
+    pub const UNKNOWN: OcspCertStatus = OcspCertStatus(ffi::V_OCSP_CERTSTATUS_UNKNOWN);
+
     pub fn from_raw(raw: c_int) -> OcspCertStatus {
         OcspCertStatus(raw)
     }
 
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn as_raw(&self) -> c_int {
         self.0
     }
-
-    pub const GOOD: OcspCertStatus = OcspCertStatus(ffi::V_OCSP_CERTSTATUS_GOOD);
-    pub const REVOKED: OcspCertStatus = OcspCertStatus(ffi::V_OCSP_CERTSTATUS_REVOKED);
-    pub const UNKNOWN: OcspCertStatus = OcspCertStatus(ffi::V_OCSP_CERTSTATUS_UNKNOWN);
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct OcspRevokedStatus(c_int);
 
 impl OcspRevokedStatus {
-    pub fn from_raw(raw: c_int) -> OcspRevokedStatus {
-        OcspRevokedStatus(raw)
-    }
-
-    pub fn as_raw(&self) -> c_int {
-        self.0
-    }
-
     pub const NO_STATUS: OcspRevokedStatus = OcspRevokedStatus(ffi::OCSP_REVOKED_STATUS_NOSTATUS);
     pub const UNSPECIFIED: OcspRevokedStatus =
         OcspRevokedStatus(ffi::OCSP_REVOKED_STATUS_UNSPECIFIED);
@@ -100,6 +98,15 @@ impl OcspRevokedStatus {
         OcspRevokedStatus(ffi::OCSP_REVOKED_STATUS_CERTIFICATEHOLD);
     pub const REMOVE_FROM_CRL: OcspRevokedStatus =
         OcspRevokedStatus(ffi::OCSP_REVOKED_STATUS_REMOVEFROMCRL);
+
+    pub fn from_raw(raw: c_int) -> OcspRevokedStatus {
+        OcspRevokedStatus(raw)
+    }
+
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    pub fn as_raw(&self) -> c_int {
+        self.0
+    }
 }
 
 pub struct OcspStatus<'a> {
@@ -123,6 +130,7 @@ impl<'a> OcspStatus<'a> {
     ///
     /// The `maxsec` parameter limits the maximum age of the `this_update` parameter to prohibit
     /// very old responses.
+    #[corresponds(OCSP_check_validity)]
     pub fn check_validity(&self, nsec: u32, maxsec: Option<u32>) -> Result<(), ErrorStack> {
         unsafe {
             cvt(ffi::OCSP_check_validity(
@@ -149,6 +157,7 @@ impl OcspBasicResponseRef {
     ///
     /// The `certs` parameter contains a set of certificates that will be searched when locating the
     /// OCSP response signing certificate. Some responders do not include this in the response.
+    #[corresponds(OCSP_basic_verify)]
     pub fn verify(
         &self,
         certs: &StackRef<X509>,
@@ -167,6 +176,7 @@ impl OcspBasicResponseRef {
     }
 
     /// Looks up the status for the specified certificate ID.
+    #[corresponds(OCSP_resp_find_status)]
     pub fn find_status<'a>(&'a self, id: &OcspCertIdRef) -> Option<OcspStatus<'a>> {
         unsafe {
             let mut status = ffi::V_OCSP_CERTSTATUS_UNKNOWN;
@@ -185,15 +195,12 @@ impl OcspBasicResponseRef {
                 &mut next_update,
             );
             if r == 1 {
-                let revocation_time = if revocation_time.is_null() {
-                    None
-                } else {
-                    Some(Asn1GeneralizedTimeRef::from_ptr(revocation_time))
-                };
+                let revocation_time = Asn1GeneralizedTimeRef::from_const_ptr_opt(revocation_time);
+
                 Some(OcspStatus {
                     status: OcspCertStatus(status),
                     reason: OcspRevokedStatus(status),
-                    revocation_time: revocation_time,
+                    revocation_time,
                     this_update: Asn1GeneralizedTimeRef::from_ptr(this_update),
                     next_update: Asn1GeneralizedTimeRef::from_ptr(next_update),
                 })
@@ -214,6 +221,7 @@ foreign_type_and_impl_send_sync! {
 
 impl OcspCertId {
     /// Constructs a certificate ID for certificate `subject`.
+    #[corresponds(OCSP_cert_to_id)]
     pub fn from_cert(
         digest: MessageDigest,
         subject: &X509Ref,
@@ -242,6 +250,7 @@ impl OcspResponse {
     /// Creates an OCSP response from the status and optional body.
     ///
     /// A body should only be provided if `status` is `RESPONSE_STATUS_SUCCESSFUL`.
+    #[corresponds(OCSP_response_create)]
     pub fn create(
         status: OcspResponseStatus,
         body: Option<&OcspBasicResponseRef>,
@@ -259,10 +268,7 @@ impl OcspResponse {
 
     from_der! {
         /// Deserializes a DER-encoded OCSP response.
-        ///
-        /// This corresponds to [`d2i_OCSP_RESPONSE`].
-        ///
-        /// [`d2i_OCSP_RESPONSE`]: https://www.openssl.org/docs/man1.1.0/crypto/d2i_OCSP_RESPONSE.html
+        #[corresponds(d2i_OCSP_RESPONSE)]
         from_der,
         OcspResponse,
         ffi::d2i_OCSP_RESPONSE
@@ -272,15 +278,13 @@ impl OcspResponse {
 impl OcspResponseRef {
     to_der! {
         /// Serializes the response to its standard DER encoding.
-        ///
-        /// This corresponds to [`i2d_OCSP_RESPONSE`].
-        ///
-        /// [`i2d_OCSP_RESPONSE`]: https://www.openssl.org/docs/man1.1.0/crypto/i2d_OCSP_RESPONSE.html
+        #[corresponds(i2d_OCSP_RESPONSE)]
         to_der,
         ffi::i2d_OCSP_RESPONSE
     }
 
     /// Returns the status of the response.
+    #[corresponds(OCSP_response_status)]
     pub fn status(&self) -> OcspResponseStatus {
         unsafe { OcspResponseStatus(ffi::OCSP_response_status(self.as_ptr())) }
     }
@@ -288,6 +292,7 @@ impl OcspResponseRef {
     /// Returns the basic response.
     ///
     /// This will only succeed if `status()` returns `RESPONSE_STATUS_SUCCESSFUL`.
+    #[corresponds(OCSP_response_get1_basic)]
     pub fn basic(&self) -> Result<OcspBasicResponse, ErrorStack> {
         unsafe { cvt_p(ffi::OCSP_response_get1_basic(self.as_ptr())).map(OcspBasicResponse) }
     }
@@ -302,6 +307,7 @@ foreign_type_and_impl_send_sync! {
 }
 
 impl OcspRequest {
+    #[corresponds(OCSP_REQUEST_new)]
     pub fn new() -> Result<OcspRequest, ErrorStack> {
         unsafe {
             ffi::init();
@@ -312,10 +318,7 @@ impl OcspRequest {
 
     from_der! {
         /// Deserializes a DER-encoded OCSP request.
-        ///
-        /// This corresponds to [`d2i_OCSP_REQUEST`].
-        ///
-        /// [`d2i_OCSP_REQUEST`]: https://www.openssl.org/docs/man1.1.0/crypto/d2i_OCSP_REQUEST.html
+        #[corresponds(d2i_OCSP_REQUEST)]
         from_der,
         OcspRequest,
         ffi::d2i_OCSP_REQUEST
@@ -325,14 +328,12 @@ impl OcspRequest {
 impl OcspRequestRef {
     to_der! {
         /// Serializes the request to its standard DER encoding.
-        ///
-        /// This corresponds to [`i2d_OCSP_REQUEST`].
-        ///
-        /// [`i2d_OCSP_REQUEST`]: https://www.openssl.org/docs/man1.1.0/crypto/i2d_OCSP_REQUEST.html
+        #[corresponds(i2d_OCSP_REQUEST)]
         to_der,
         ffi::i2d_OCSP_REQUEST
     }
 
+    #[corresponds(OCSP_request_add0_id)]
     pub fn add_id(&mut self, id: OcspCertId) -> Result<&mut OcspOneReqRef, ErrorStack> {
         unsafe {
             let ptr = cvt_p(ffi::OCSP_request_add0_id(self.as_ptr(), id.as_ptr()))?;

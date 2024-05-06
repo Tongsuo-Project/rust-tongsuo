@@ -51,15 +51,12 @@
 //! assert_eq!("Foo bar", output_string);
 //! println!("Decrypted: '{}'", output_string);
 //! ```
-
-use ffi;
-use libc::c_int;
-use std::cmp;
-use std::ptr;
-
-use error::ErrorStack;
-use nid::Nid;
-use {cvt, cvt_p};
+use crate::cipher::CipherRef;
+use crate::cipher_ctx::{CipherCtx, CipherCtxRef};
+use crate::error::ErrorStack;
+use crate::nid::Nid;
+use cfg_if::cfg_if;
+use foreign_types::ForeignTypeRef;
 
 #[derive(Copy, Clone)]
 pub enum Mode {
@@ -71,7 +68,7 @@ pub enum Mode {
 ///
 /// See OpenSSL doc at [`EVP_EncryptInit`] for more information on each algorithms.
 ///
-/// [`EVP_EncryptInit`]: https://www.openssl.org/docs/man1.1.0/crypto/EVP_EncryptInit.html
+/// [`EVP_EncryptInit`]: https://www.openssl.org/docs/manmaster/crypto/EVP_EncryptInit.html
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Cipher(*const ffi::EVP_CIPHER);
 
@@ -80,7 +77,7 @@ impl Cipher {
     ///
     /// This corresponds to [`EVP_get_cipherbynid`]
     ///
-    /// [`EVP_get_cipherbynid`]: https://www.openssl.org/docs/man1.0.2/crypto/EVP_get_cipherbyname.html
+    /// [`EVP_get_cipherbynid`]: https://www.openssl.org/docs/manmaster/crypto/EVP_get_cipherbyname.html
     pub fn from_nid(nid: Nid) -> Option<Cipher> {
         let ptr = unsafe { ffi::EVP_get_cipherbyname(ffi::OBJ_nid2sn(nid.as_raw())) };
         if ptr.is_null() {
@@ -90,41 +87,14 @@ impl Cipher {
         }
     }
 
-    cfg_if! {
-        if #[cfg(babassl800)] {
-            pub fn sm4_gcm() -> Cipher {
-                unsafe { Cipher(ffi::EVP_sm4_gcm()) }
-            }
-
-            pub fn sm4_ccm() -> Cipher {
-                unsafe { Cipher(ffi::EVP_sm4_ccm()) }
-            }
-        }
-    }
-
-    #[cfg(ossl111)]
-    pub fn sm4_ecb() -> Cipher {
-        unsafe { Cipher(ffi::EVP_sm4_ecb())}
-    }
-
-    #[cfg(ossl111)]
-    pub fn sm4_cbc() -> Cipher {
-        unsafe { Cipher(ffi::EVP_sm4_cbc())}
-    }
-
-    #[cfg(ossl111)]
-    pub fn sm4_ofb() -> Cipher {
-        unsafe { Cipher(ffi::EVP_sm4_ofb())}
-    }
-
-    #[cfg(ossl111)]
-    pub fn sm4_cfb() -> Cipher {
-        unsafe { Cipher(ffi::EVP_sm4_cfb128())}
-    }
-
-    #[cfg(ossl111)]
-    pub fn sm4_ctr() -> Cipher {
-        unsafe { Cipher(ffi::EVP_sm4_ctr())}
+    /// Returns the cipher's Nid.
+    ///
+    /// This corresponds to [`EVP_CIPHER_nid`]
+    ///
+    /// [`EVP_CIPHER_nid`]: https://www.openssl.org/docs/manmaster/crypto/EVP_CIPHER_nid.html
+    pub fn nid(&self) -> Nid {
+        let nid = unsafe { ffi::EVP_CIPHER_nid(self.0) };
+        Nid::from_raw(nid)
     }
 
     pub fn aes_128_ecb() -> Cipher {
@@ -135,6 +105,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_cbc()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_128_xts() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_xts()) }
     }
@@ -143,6 +114,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_ctr()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_128_cfb1() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_cfb1()) }
     }
@@ -151,6 +123,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_cfb128()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_128_cfb8() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_cfb8()) }
     }
@@ -159,12 +132,19 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_gcm()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_128_ccm() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_ccm()) }
     }
 
     pub fn aes_128_ofb() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_128_ofb()) }
+    }
+
+    /// Requires OpenSSL 1.1.0 or newer.
+    #[cfg(all(ossl110, not(osslconf = "OPENSSL_NO_OCB")))]
+    pub fn aes_128_ocb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_aes_128_ocb()) }
     }
 
     pub fn aes_192_ecb() -> Cipher {
@@ -179,6 +159,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_192_ctr()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_192_cfb1() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_192_cfb1()) }
     }
@@ -187,6 +168,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_192_cfb128()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_192_cfb8() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_192_cfb8()) }
     }
@@ -195,12 +177,19 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_192_gcm()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_192_ccm() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_192_ccm()) }
     }
 
     pub fn aes_192_ofb() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_192_ofb()) }
+    }
+
+    /// Requires OpenSSL 1.1.0 or newer.
+    #[cfg(all(ossl110, not(osslconf = "OPENSSL_NO_OCB")))]
+    pub fn aes_192_ocb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_aes_192_ocb()) }
     }
 
     pub fn aes_256_ecb() -> Cipher {
@@ -211,6 +200,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_cbc()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_256_xts() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_xts()) }
     }
@@ -219,6 +209,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_ctr()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_256_cfb1() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_cfb1()) }
     }
@@ -227,6 +218,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_cfb128()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_256_cfb8() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_cfb8()) }
     }
@@ -235,6 +227,7 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_gcm()) }
     }
 
+    #[cfg(not(boringssl))]
     pub fn aes_256_ccm() -> Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_ccm()) }
     }
@@ -243,18 +236,28 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_aes_256_ofb()) }
     }
 
+    /// Requires OpenSSL 1.1.0 or newer.
+    #[cfg(all(ossl110, not(osslconf = "OPENSSL_NO_OCB")))]
+    pub fn aes_256_ocb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_aes_256_ocb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub fn bf_cbc() -> Cipher {
         unsafe { Cipher(ffi::EVP_bf_cbc()) }
     }
 
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub fn bf_ecb() -> Cipher {
         unsafe { Cipher(ffi::EVP_bf_ecb()) }
     }
 
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub fn bf_cfb64() -> Cipher {
         unsafe { Cipher(ffi::EVP_bf_cfb64()) }
     }
 
+    #[cfg(not(osslconf = "OPENSSL_NO_BF"))]
     pub fn bf_ofb() -> Cipher {
         unsafe { Cipher(ffi::EVP_bf_ofb()) }
     }
@@ -275,41 +278,220 @@ impl Cipher {
         unsafe { Cipher(ffi::EVP_des_ede3_cbc()) }
     }
 
+    pub fn des_ede3_ecb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_des_ede3_ecb()) }
+    }
+
+    #[cfg(not(boringssl))]
     pub fn des_ede3_cfb64() -> Cipher {
         unsafe { Cipher(ffi::EVP_des_ede3_cfb64()) }
     }
 
+    #[cfg(not(boringssl))]
+    pub fn des_ede3_cfb8() -> Cipher {
+        unsafe { Cipher(ffi::EVP_des_ede3_cfb8()) }
+    }
+
+    #[cfg(not(boringssl))]
+    pub fn des_ede3_ofb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_des_ede3_ofb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_RC4"))]
     pub fn rc4() -> Cipher {
         unsafe { Cipher(ffi::EVP_rc4()) }
     }
 
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_128_cbc() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_128_cbc()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_128_ecb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_128_ecb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_128_ofb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_128_ofb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_128_cfb128() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_128_cfb128()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_192_cbc() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_192_cbc()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_192_ecb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_192_ecb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_192_ofb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_192_ofb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_192_cfb128() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_192_cfb128()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_256_cbc() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_256_cbc()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_256_ecb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_256_ecb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_256_ofb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_256_ofb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAMELLIA"))]
+    pub fn camellia_256_cfb128() -> Cipher {
+        unsafe { Cipher(ffi::EVP_camellia_256_cfb128()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
+    pub fn cast5_cbc() -> Cipher {
+        unsafe { Cipher(ffi::EVP_cast5_cbc()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
+    pub fn cast5_ecb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_cast5_ecb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
+    pub fn cast5_ofb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_cast5_ofb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_CAST"))]
+    pub fn cast5_cfb64() -> Cipher {
+        unsafe { Cipher(ffi::EVP_cast5_cfb64()) }
+    }
+
     /// Requires OpenSSL 1.1.0 or newer.
-    #[cfg(any(ossl110))]
+    #[cfg(all(any(ossl110, libressl310), not(osslconf = "OPENSSL_NO_CHACHA")))]
     pub fn chacha20() -> Cipher {
         unsafe { Cipher(ffi::EVP_chacha20()) }
     }
 
     /// Requires OpenSSL 1.1.0 or newer.
-    #[cfg(any(ossl110))]
+    #[cfg(all(any(ossl110, libressl360), not(osslconf = "OPENSSL_NO_CHACHA")))]
     pub fn chacha20_poly1305() -> Cipher {
         unsafe { Cipher(ffi::EVP_chacha20_poly1305()) }
     }
 
+    #[cfg(not(osslconf = "OPENSSL_NO_IDEA"))]
+    pub fn idea_cbc() -> Cipher {
+        unsafe { Cipher(ffi::EVP_idea_cbc()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_IDEA"))]
+    pub fn idea_ecb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_idea_ecb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_IDEA"))]
+    pub fn idea_ofb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_idea_ofb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_IDEA"))]
+    pub fn idea_cfb64() -> Cipher {
+        unsafe { Cipher(ffi::EVP_idea_cfb64()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_SEED"))]
+    pub fn seed_cbc() -> Cipher {
+        unsafe { Cipher(ffi::EVP_seed_cbc()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_SEED"))]
+    pub fn seed_cfb128() -> Cipher {
+        unsafe { Cipher(ffi::EVP_seed_cfb128()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_SEED"))]
+    pub fn seed_ecb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_seed_ecb()) }
+    }
+
+    #[cfg(not(osslconf = "OPENSSL_NO_SEED"))]
+    pub fn seed_ofb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_seed_ofb()) }
+    }
+
+    #[cfg(all(any(babassl, tongsuo), not(osslconf = "OPENSSL_NO_SM4")))]
+    pub fn sm4_gcm() -> Cipher {
+        unsafe { Cipher(ffi::EVP_sm4_gcm()) }
+    }
+
+    #[cfg(all(any(babassl, tongsuo), not(osslconf = "OPENSSL_NO_SM4")))]
+    pub fn sm4_ccm() -> Cipher {
+        unsafe { Cipher(ffi::EVP_sm4_ccm()) }
+    }
+
+    #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM4")))]
+    pub fn sm4_ecb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_sm4_ecb()) }
+    }
+
+    #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM4")))]
+    pub fn sm4_cbc() -> Cipher {
+        unsafe { Cipher(ffi::EVP_sm4_cbc()) }
+    }
+
+    #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM4")))]
+    pub fn sm4_ctr() -> Cipher {
+        unsafe { Cipher(ffi::EVP_sm4_ctr()) }
+    }
+
+    #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM4")))]
+    pub fn sm4_cfb128() -> Cipher {
+        unsafe { Cipher(ffi::EVP_sm4_cfb128()) }
+    }
+
+    #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM4")))]
+    pub fn sm4_ofb() -> Cipher {
+        unsafe { Cipher(ffi::EVP_sm4_ofb()) }
+    }
+
+    /// Creates a `Cipher` from a raw pointer to its OpenSSL type.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure the pointer is valid for the `'static` lifetime.
     pub unsafe fn from_ptr(ptr: *const ffi::EVP_CIPHER) -> Cipher {
         Cipher(ptr)
     }
 
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn as_ptr(&self) -> *const ffi::EVP_CIPHER {
         self.0
     }
 
     /// Returns the length of keys used with this cipher.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn key_len(&self) -> usize {
         unsafe { EVP_CIPHER_key_length(self.0) as usize }
     }
 
     /// Returns the length of the IV used with this cipher, or `None` if the
     /// cipher does not use an IV.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn iv_len(&self) -> Option<usize> {
         unsafe {
             let len = EVP_CIPHER_iv_length(self.0) as usize;
@@ -326,20 +508,40 @@ impl Cipher {
     /// # Note
     ///
     /// Stream ciphers such as RC4 have a block size of 1.
+    #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn block_size(&self) -> usize {
         unsafe { EVP_CIPHER_block_size(self.0) as usize }
     }
 
     /// Determines whether the cipher is using CCM mode
-    fn is_ccm(&self) -> bool {
+    #[cfg(not(boringssl))]
+    fn is_ccm(self) -> bool {
         // NOTE: OpenSSL returns pointers to static structs, which makes this work as expected
         cfg_if! {
-            if #[cfg(babassl800)] {
-                return *self == Cipher::aes_128_ccm() || *self == Cipher::aes_256_ccm() || *self == Cipher::sm4_ccm();
+            if #[cfg(any(babassl800, tongsuo800))] {
+                return self == Cipher::aes_128_ccm() || self == Cipher::aes_256_ccm() || self == Cipher::sm4_ccm();
             } else {
-                return *self == Cipher::aes_128_ccm() || *self == Cipher::aes_256_ccm();
+                return self == Cipher::aes_128_ccm() || self == Cipher::aes_256_ccm();
             }
         }
+    }
+
+    #[cfg(boringssl)]
+    fn is_ccm(self) -> bool {
+        false
+    }
+
+    /// Determines whether the cipher is using OCB mode
+    #[cfg(all(ossl110, not(osslconf = "OPENSSL_NO_OCB")))]
+    fn is_ocb(self) -> bool {
+        self == Cipher::aes_128_ocb()
+            || self == Cipher::aes_192_ocb()
+            || self == Cipher::aes_256_ocb()
+    }
+
+    #[cfg(any(not(ossl110), osslconf = "OPENSSL_NO_OCB"))]
+    const fn is_ocb(self) -> bool {
+        false
     }
 }
 
@@ -407,15 +609,11 @@ unsafe impl Send for Cipher {}
 /// assert_eq!(b"Some Stream of Crypto Text", &plaintext[..]);
 /// ```
 pub struct Crypter {
-    ctx: *mut ffi::EVP_CIPHER_CTX,
-    block_size: usize,
+    ctx: CipherCtx,
 }
 
-unsafe impl Sync for Crypter {}
-unsafe impl Send for Crypter {}
-
 impl Crypter {
-    /// Creates a new `Crypter`.  The initialisation vector, `iv`, is not necesarry for certain
+    /// Creates a new `Crypter`.  The initialisation vector, `iv`, is not necessary for certain
     /// types of `Cipher`.
     ///
     /// # Panics
@@ -428,63 +626,76 @@ impl Crypter {
         key: &[u8],
         iv: Option<&[u8]>,
     ) -> Result<Crypter, ErrorStack> {
-        ffi::init();
+        let mut ctx = CipherCtx::new()?;
 
-        unsafe {
-            let ctx = cvt_p(ffi::EVP_CIPHER_CTX_new())?;
-            let crypter = Crypter {
-                ctx: ctx,
-                block_size: t.block_size(),
-            };
+        let f = match mode {
+            Mode::Encrypt => CipherCtxRef::encrypt_init,
+            Mode::Decrypt => CipherCtxRef::decrypt_init,
+        };
 
-            let mode = match mode {
-                Mode::Encrypt => 1,
-                Mode::Decrypt => 0,
-            };
+        f(
+            &mut ctx,
+            Some(unsafe { CipherRef::from_ptr(t.as_ptr() as *mut _) }),
+            None,
+            None,
+        )?;
 
-            cvt(ffi::EVP_CipherInit_ex(
-                crypter.ctx,
-                t.as_ptr(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                ptr::null_mut(),
-                mode,
-            ))?;
+        ctx.set_key_length(key.len())?;
 
-            assert!(key.len() <= c_int::max_value() as usize);
-            cvt(ffi::EVP_CIPHER_CTX_set_key_length(
-                crypter.ctx,
-                key.len() as c_int,
-            ))?;
-
-            let key = key.as_ptr() as *mut _;
-            let iv = match (iv, t.iv_len()) {
-                (Some(iv), Some(len)) => {
-                    if iv.len() != len {
-                        assert!(iv.len() <= c_int::max_value() as usize);
-                        cvt(ffi::EVP_CIPHER_CTX_ctrl(
-                            crypter.ctx,
-                            ffi::EVP_CTRL_GCM_SET_IVLEN,
-                            iv.len() as c_int,
-                            ptr::null_mut(),
-                        ))?;
-                    }
-                    iv.as_ptr() as *mut _
-                }
-                (Some(_), None) | (None, None) => ptr::null_mut(),
-                (None, Some(_)) => panic!("an IV is required for this cipher"),
-            };
-            cvt(ffi::EVP_CipherInit_ex(
-                crypter.ctx,
-                ptr::null(),
-                ptr::null_mut(),
-                key,
-                iv,
-                mode,
-            ))?;
-
-            Ok(crypter)
+        if let (Some(iv), Some(iv_len)) = (iv, t.iv_len()) {
+            if iv.len() != iv_len || t.is_ccm() {
+                ctx.set_iv_length(iv.len())?;
+            }
         }
+
+        f(&mut ctx, None, Some(key), iv)?;
+
+        Ok(Crypter { ctx })
+    }
+
+    pub fn new_ex(
+        t: Cipher,
+        mode: Mode,
+        key: &[u8],
+        iv: Option<&[u8]>,
+        tag: &[u8],
+    ) -> Result<Crypter, ErrorStack> {
+        let mut ctx = CipherCtx::new()?;
+
+        let f = match mode {
+            Mode::Encrypt => CipherCtxRef::encrypt_init,
+            Mode::Decrypt => CipherCtxRef::decrypt_init,
+        };
+
+        f(
+            &mut ctx,
+            Some(unsafe { CipherRef::from_ptr(t.as_ptr() as *mut _) }),
+            None,
+            None,
+        )?;
+
+        ctx.set_key_length(key.len())?;
+
+        if let (Some(iv), Some(iv_len)) = (iv, t.iv_len()) {
+            if iv.len() != iv_len || t.is_ccm() {
+                ctx.set_iv_length(iv.len())?;
+            }
+        }
+
+        if t.is_ccm() || t.is_ocb() {
+            match mode {
+                Mode::Encrypt => {
+                    ctx.set_tag_length(tag.len())?;
+                },
+                _ => {
+                    ctx.set_tag(tag)?;
+                }
+            }
+        }
+
+        f(&mut ctx, None, Some(key), iv)?;
+
+        Ok(Crypter { ctx })
     }
 
     /// Enables or disables padding.
@@ -492,26 +703,14 @@ impl Crypter {
     /// If padding is disabled, total amount of data encrypted/decrypted must
     /// be a multiple of the cipher's block size.
     pub fn pad(&mut self, padding: bool) {
-        unsafe {
-            ffi::EVP_CIPHER_CTX_set_padding(self.ctx, padding as c_int);
-        }
+        self.ctx.set_padding(padding)
     }
 
     /// Sets the tag used to authenticate ciphertext in AEAD ciphers such as AES GCM.
     ///
     /// When decrypting cipher text using an AEAD cipher, this must be called before `finalize`.
     pub fn set_tag(&mut self, tag: &[u8]) -> Result<(), ErrorStack> {
-        unsafe {
-            assert!(tag.len() <= c_int::max_value() as usize);
-            // NB: this constant is actually more general than just GCM.
-            cvt(ffi::EVP_CIPHER_CTX_ctrl(
-                self.ctx,
-                ffi::EVP_CTRL_GCM_SET_TAG,
-                tag.len() as c_int,
-                tag.as_ptr() as *mut _,
-            ))
-            .map(|_| ())
-        }
+        self.ctx.set_tag(tag)
     }
 
     /// Sets the length of the authentication tag to generate in AES CCM.
@@ -519,17 +718,7 @@ impl Crypter {
     /// When encrypting with AES CCM, the tag length needs to be explicitly set in order
     /// to use a value different than the default 12 bytes.
     pub fn set_tag_len(&mut self, tag_len: usize) -> Result<(), ErrorStack> {
-        unsafe {
-            assert!(tag_len <= c_int::max_value() as usize);
-            // NB: this constant is actually more general than just GCM.
-            cvt(ffi::EVP_CIPHER_CTX_ctrl(
-                self.ctx,
-                ffi::EVP_CTRL_GCM_SET_TAG,
-                tag_len as c_int,
-                ptr::null_mut(),
-            ))
-            .map(|_| ())
-        }
+        self.ctx.set_tag_length(tag_len)
     }
 
     /// Feeds total plaintext length to the cipher.
@@ -537,18 +726,7 @@ impl Crypter {
     /// The total plaintext or ciphertext length MUST be passed to the cipher when it operates in
     /// CCM mode.
     pub fn set_data_len(&mut self, data_len: usize) -> Result<(), ErrorStack> {
-        unsafe {
-            assert!(data_len <= c_int::max_value() as usize);
-            let mut len = 0;
-            cvt(ffi::EVP_CipherUpdate(
-                self.ctx,
-                ptr::null_mut(),
-                &mut len,
-                ptr::null_mut(),
-                data_len as c_int,
-            ))
-            .map(|_| ())
-        }
+        self.ctx.set_data_len(data_len)
     }
 
     /// Feeds Additional Authenticated Data (AAD) through the cipher.
@@ -557,18 +735,8 @@ impl Crypter {
     /// is factored into the authentication tag. It must be called before the first call to
     /// `update`.
     pub fn aad_update(&mut self, input: &[u8]) -> Result<(), ErrorStack> {
-        unsafe {
-            assert!(input.len() <= c_int::max_value() as usize);
-            let mut len = 0;
-            cvt(ffi::EVP_CipherUpdate(
-                self.ctx,
-                ptr::null_mut(),
-                &mut len,
-                input.as_ptr(),
-                input.len() as c_int,
-            ))
-            .map(|_| ())
-        }
+        self.ctx.cipher_update(input, None)?;
+        Ok(())
     }
 
     /// Feeds data from `input` through the cipher, writing encrypted/decrypted
@@ -586,27 +754,28 @@ impl Crypter {
     ///
     /// Panics if `output.len() > c_int::max_value()`.
     pub fn update(&mut self, input: &[u8], output: &mut [u8]) -> Result<usize, ErrorStack> {
-        unsafe {
-            let block_size = if self.block_size > 1 {
-                self.block_size
-            } else {
-                0
-            };
-            assert!(output.len() >= input.len() + block_size);
-            assert!(output.len() <= c_int::max_value() as usize);
-            let mut outl = output.len() as c_int;
-            let inl = input.len() as c_int;
+        self.ctx.cipher_update(input, Some(output))
+    }
 
-            cvt(ffi::EVP_CipherUpdate(
-                self.ctx,
-                output.as_mut_ptr(),
-                &mut outl,
-                input.as_ptr(),
-                inl,
-            ))?;
-
-            Ok(outl as usize)
-        }
+    /// Feeds data from `input` through the cipher, writing encrypted/decrypted
+    /// bytes into `output`.
+    ///
+    /// The number of bytes written to `output` is returned. Note that this may
+    /// not be equal to the length of `input`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must provide an `output` buffer large enough to contain
+    /// correct number of bytes. For streaming ciphers the output buffer size
+    /// should be at least as big as the input buffer. For block ciphers the
+    /// size of the output buffer depends on the state of partially updated
+    /// blocks.
+    pub unsafe fn update_unchecked(
+        &mut self,
+        input: &[u8],
+        output: &mut [u8],
+    ) -> Result<usize, ErrorStack> {
+        self.ctx.cipher_update_unchecked(input, Some(output))
     }
 
     /// Finishes the encryption/decryption process, writing any remaining data
@@ -621,20 +790,7 @@ impl Crypter {
     /// Panics for block ciphers if `output.len() < block_size`,
     /// where `block_size` is the block size of the cipher (see `Cipher::block_size`).
     pub fn finalize(&mut self, output: &mut [u8]) -> Result<usize, ErrorStack> {
-        unsafe {
-            if self.block_size > 1 {
-                assert!(output.len() >= self.block_size);
-            }
-            let mut outl = cmp::min(output.len(), c_int::max_value() as usize) as c_int;
-
-            cvt(ffi::EVP_CipherFinal(
-                self.ctx,
-                output.as_mut_ptr(),
-                &mut outl,
-            ))?;
-
-            Ok(outl as usize)
-        }
+        self.ctx.cipher_final(output)
     }
 
     /// Retrieves the authentication tag used to authenticate ciphertext in AEAD ciphers such
@@ -646,34 +802,17 @@ impl Crypter {
     /// range of tag sizes, it is recommended to pick the maximum size. For AES GCM, this is 16
     /// bytes, for example.
     pub fn get_tag(&self, tag: &mut [u8]) -> Result<(), ErrorStack> {
-        unsafe {
-            assert!(tag.len() <= c_int::max_value() as usize);
-            cvt(ffi::EVP_CIPHER_CTX_ctrl(
-                self.ctx,
-                ffi::EVP_CTRL_GCM_GET_TAG,
-                tag.len() as c_int,
-                tag.as_mut_ptr() as *mut _,
-            ))
-            .map(|_| ())
-        }
-    }
-}
-
-impl Drop for Crypter {
-    fn drop(&mut self) {
-        unsafe {
-            ffi::EVP_CIPHER_CTX_free(self.ctx);
-        }
+        self.ctx.tag(tag)
     }
 }
 
 /// Encrypts data in one go, and returns the encrypted data.
 ///
 /// Data is encrypted using the specified cipher type `t` in encrypt mode with the specified `key`
-/// and initailization vector `iv`. Padding is enabled.
+/// and initialization vector `iv`. Padding is enabled.
 ///
 /// This is a convenient interface to `Crypter` to encrypt all data in one go.  To encrypt a stream
-/// of data increamentally , use `Crypter` instead.
+/// of data incrementally , use `Crypter` instead.
 ///
 /// # Examples
 ///
@@ -709,10 +848,10 @@ pub fn encrypt(
 /// Decrypts data in one go, and returns the decrypted data.
 ///
 /// Data is decrypted using the specified cipher type `t` in decrypt mode with the specified `key`
-/// and initailization vector `iv`. Padding is enabled.
+/// and initialization vector `iv`. Padding is enabled.
 ///
 /// This is a convenient interface to `Crypter` to decrypt all data in one go.  To decrypt a  stream
-/// of data increamentally , use `Crypter` instead.
+/// of data incrementally , use `Crypter` instead.
 ///
 /// # Examples
 ///
@@ -776,11 +915,16 @@ pub fn encrypt_aead(
     data: &[u8],
     tag: &mut [u8],
 ) -> Result<Vec<u8>, ErrorStack> {
-    let mut c = Crypter::new(t, Mode::Encrypt, key, iv)?;
+    let is_ccm = t.is_ccm();
+    let mut c = if is_ccm || t.is_ocb() {
+        Crypter::new_ex(t, Mode::Encrypt, key, iv, tag)?
+    } else {
+        Crypter::new(t, Mode::Encrypt, key, iv)?
+    };
+
     let mut out = vec![0; data.len() + t.block_size()];
 
-    if t.is_ccm() {
-        c.set_tag_len(tag.len())?;
+    if is_ccm {
         c.set_data_len(data.len())?;
     }
 
@@ -804,43 +948,50 @@ pub fn decrypt_aead(
     data: &[u8],
     tag: &[u8],
 ) -> Result<Vec<u8>, ErrorStack> {
-    let mut c = Crypter::new(t, Mode::Decrypt, key, iv)?;
+    let is_ccm = t.is_ccm();
+    let mut c = if is_ccm || t.is_ocb() {
+        Crypter::new_ex(t, Mode::Decrypt, key, iv, tag)?
+    } else {
+        Crypter::new(t, Mode::Decrypt, key, iv)?
+    };
     let mut out = vec![0; data.len() + t.block_size()];
 
-    if t.is_ccm() {
-        c.set_tag(tag)?;
+    if is_ccm {
         c.set_data_len(data.len())?;
     }
 
     c.aad_update(aad)?;
     let count = c.update(data, &mut out)?;
-    let mut rest = 0;
 
-    if !t.is_ccm() {
+    let rest = if t.is_ccm() {
+        0
+    } else {
         c.set_tag(tag)?;
-        rest = c.finalize(&mut out[count..])?;
-    }
+        c.finalize(&mut out[count..])?
+    };
 
     out.truncate(count + rest);
     Ok(out)
 }
 
 cfg_if! {
-    if #[cfg(any(ossl110, libressl273))] {
+    if #[cfg(any(boringssl, ossl110, libressl273))] {
         use ffi::{EVP_CIPHER_block_size, EVP_CIPHER_iv_length, EVP_CIPHER_key_length};
     } else {
+        use crate::LenType;
+
         #[allow(bad_style)]
-        pub unsafe fn EVP_CIPHER_iv_length(ptr: *const ffi::EVP_CIPHER) -> c_int {
+        pub unsafe fn EVP_CIPHER_iv_length(ptr: *const ffi::EVP_CIPHER) -> LenType {
             (*ptr).iv_len
         }
 
         #[allow(bad_style)]
-        pub unsafe fn EVP_CIPHER_block_size(ptr: *const ffi::EVP_CIPHER) -> c_int {
+        pub unsafe fn EVP_CIPHER_block_size(ptr: *const ffi::EVP_CIPHER) -> LenType {
             (*ptr).block_size
         }
 
         #[allow(bad_style)]
-        pub unsafe fn EVP_CIPHER_key_length(ptr: *const ffi::EVP_CIPHER) -> c_int {
+        pub unsafe fn EVP_CIPHER_key_length(ptr: *const ffi::EVP_CIPHER) -> LenType {
             (*ptr).key_len
         }
     }
@@ -970,6 +1121,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(boringssl))]
     fn cipher_test_nopad(ciphertype: super::Cipher, pt: &str, ct: &str, key: &str, iv: &str) {
         let pt = Vec::from_hex(pt).unwrap();
         let ct = Vec::from_hex(ct).unwrap();
@@ -1002,7 +1154,11 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(osslconf = "OPENSSL_NO_RC4"))]
     fn test_rc4() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
         let pt = "0000000000000000000000000000000000000000000000000000000000000000000000000000";
         let ct = "A68686B04D686AA107BD8D4CAB191A3EEC0A6294BC78B60F65C25CB47BD7BB3A48EFC4D26BE4";
         let key = "97CD440324DA5FD1F7955C1C13B6B466";
@@ -1012,6 +1168,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes256_xts() {
         // Test case 174 from
         // http://csrc.nist.gov/groups/STM/cavp/documents/aes/XTSTestVectors.zip
@@ -1039,6 +1196,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes128_cfb1() {
         // Lifted from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
 
@@ -1051,6 +1209,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes128_cfb128() {
         let pt = "6bc1bee22e409f96e93d7e117393172a";
         let ct = "3b3fd92eb72dad20333449f8e83cfb4a";
@@ -1061,6 +1220,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes128_cfb8() {
         let pt = "6bc1bee22e409f96e93d7e117393172aae2d";
         let ct = "3b79424c9c0dd436bace9e0ed4586a4f32b9";
@@ -1095,6 +1255,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes192_cfb1() {
         // Lifted from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
 
@@ -1107,6 +1268,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes192_cfb128() {
         // Lifted from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
 
@@ -1119,6 +1281,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes192_cfb8() {
         // Lifted from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
 
@@ -1143,6 +1306,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes256_cfb1() {
         let pt = "6bc1";
         let ct = "9029";
@@ -1153,6 +1317,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes256_cfb128() {
         let pt = "6bc1bee22e409f96e93d7e117393172a";
         let ct = "dc7e84bfda79164b7ecd8486985d3860";
@@ -1163,6 +1328,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes256_cfb8() {
         let pt = "6bc1bee22e409f96e93d7e117393172aae2d";
         let ct = "dc1f1a8520a64db55fcc8ac554844e889700";
@@ -1185,7 +1351,12 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(ossl300, ignore)]
+    #[cfg(all(not(boringssl), not(osslconf = "OPENSSL_NO_BF")))]
     fn test_bf_cbc() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
         // https://www.schneier.com/code/vectors.txt
 
         let pt = "37363534333231204E6F77206973207468652074696D6520666F722000000000";
@@ -1197,7 +1368,12 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(ossl300, ignore)]
+    #[cfg(all(not(boringssl), not(osslconf = "OPENSSL_NO_BF")))]
     fn test_bf_ecb() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
         let pt = "5CD54CA83DEF57DA";
         let ct = "B1B8CC0B250F09A0";
         let key = "0131D9619DC1376E";
@@ -1207,7 +1383,12 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(ossl300, ignore)]
+    #[cfg(all(not(boringssl), not(osslconf = "OPENSSL_NO_BF")))]
     fn test_bf_cfb64() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
         let pt = "37363534333231204E6F77206973207468652074696D6520666F722000";
         let ct = "E73214A2822139CAF26ECF6D2EB9E76E3DA3DE04D1517200519D57A6C3";
         let key = "0123456789ABCDEFF0E1D2C3B4A59687";
@@ -1217,7 +1398,12 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(ossl300, ignore)]
+    #[cfg(all(not(boringssl), not(osslconf = "OPENSSL_NO_BF")))]
     fn test_bf_ofb() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
         let pt = "37363534333231204E6F77206973207468652074696D6520666F722000";
         let ct = "E73214A2822139CA62B343CC5B65587310DD908D0C241B2263C2CF80DA";
         let key = "0123456789ABCDEFF0E1D2C3B4A59687";
@@ -1228,6 +1414,9 @@ mod tests {
 
     #[test]
     fn test_des_cbc() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
         let pt = "54686973206973206120746573742e";
         let ct = "6f2867cfefda048a4046ef7e556c7132";
         let key = "7cb66337f3d3c0fe";
@@ -1238,6 +1427,9 @@ mod tests {
 
     #[test]
     fn test_des_ecb() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
         let pt = "54686973206973206120746573742e";
         let ct = "0050ab8aecec758843fe157b4dde938c";
         let key = "7cb66337f3d3c0fe";
@@ -1267,6 +1459,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_des_ede3_cfb64() {
         let pt = "2b1773784b5889dc788477367daa98ad";
         let ct = "6f2867cfefda048a4046ef7e556c7132";
@@ -1276,19 +1469,10 @@ mod tests {
         cipher_test(super::Cipher::des_ede3_cfb64(), pt, ct, key, iv);
     }
 
-    #[cfg(ossl111)]
-    #[test]
-    fn test_sm4_ecb() {
-        let pt = "0123456789ABCDEFFEDCBA9876543210";
-        let ct = "681EDF34D206965E86B3E94F536E4246";
-        let key = "0123456789ABCDEFFEDCBA9876543210";
-        let iv = "";
-
-        cipher_test(super::Cipher::sm4_ecb(), pt, ct, key, iv);
-    }
-
+  
+  
     cfg_if! {
-        if #[cfg(babassl800)] {
+        if #[cfg(any(babassl800, tongsuo800))] {
             // The SM4 GCM test vector is from draft-yang-tls-tls13-sm-suites-01
             #[test]
             fn test_sm4_gcm() {
@@ -1372,18 +1556,12 @@ mod tests {
 
     #[test]
     fn test_aes128_gcm() {
-        let key = "0e00c76561d2bd9b40c3c15427e2b08f";
-        let iv = "492cadaccd3ca3fbc9cf9f06eb3325c4e159850b0dbe98199b89b7af528806610b6f63998e1eae80c348e7\
-             4cbb921d8326631631fc6a5d304f39166daf7ea15fa1977f101819adb510b50fe9932e12c5a85aa3fd1e73\
-             d8d760af218be829903a77c63359d75edd91b4f6ed5465a72662f5055999e059e7654a8edc921aa0d496";
-        let pt = "fef03c2d7fb15bf0d2df18007d99f967c878ad59359034f7bb2c19af120685d78e32f6b8b83b032019956c\
-             a9c0195721476b85";
-        let aad = "d8f1163d8c840292a2b2dacf4ac7c36aff8733f18fabb4fa5594544125e03d1e6e5d6d0fd61656c8d8f327\
-             c92839ae5539bb469c9257f109ebff85aad7bd220fdaa95c022dbd0c7bb2d878ad504122c943045d3c5eba\
-             8f1f56c0";
-        let ct = "4f6cf471be7cbd2575cd5a1747aea8fe9dea83e51936beac3e68f66206922060c697ffa7af80ad6bb68f2c\
-             f4fc97416ee52abe";
-        let tag = "e20b6655";
+        let key = "23dc8d23d95b6fd1251741a64f7d4f41";
+        let iv = "f416f48ad44d9efa1179e167";
+        let pt = "6cb9b71dd0ccd42cdf87e8e396fc581fd8e0d700e360f590593b748e105390de";
+        let aad = "45074844c97d515c65bbe37c210a5a4b08c21c588efe5c5f73c4d9c17d34dacddc0bb6a8a53f7bf477b9780c1c2a928660df87016b2873fe876b2b887fb5886bfd63216b7eaecc046372a82c047eb043f0b063226ee52a12c69b";
+        let ct = "8ad20486778e87387efb3f2574e509951c0626816722018129e578b2787969d3";
+        let tag = "91e1bc09";
 
         // this tag is smaller than you'd normally want, but I pulled this test from the part of
         // the NIST test vectors that cover 4 byte tags.
@@ -1413,6 +1591,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes128_ccm() {
         let key = "3ee186594f110fb788a8bf8aa8be5d4a";
         let nonce = "44f705d52acf27b7f17196aa9b";
@@ -1449,6 +1628,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes128_ccm_verify_fail() {
         let key = "3ee186594f110fb788a8bf8aa8be5d4a";
         let nonce = "44f705d52acf27b7f17196aa9b";
@@ -1469,6 +1649,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes256_ccm() {
         let key = "7f4af6765cad1d511db07e33aaafd57646ec279db629048aa6770af24849aa0d";
         let nonce = "dde2a362ce81b2b6913abc3095";
@@ -1505,6 +1686,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(boringssl))]
     fn test_aes256_ccm_verify_fail() {
         let key = "7f4af6765cad1d511db07e33aaafd57646ec279db629048aa6770af24849aa0d";
         let nonce = "dde2a362ce81b2b6913abc3095";
@@ -1525,7 +1707,63 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(ossl110))]
+    #[cfg(all(ossl110, not(osslconf = "OPENSSL_NO_OCB")))]
+    fn test_aes_128_ocb() {
+        let key = "000102030405060708090a0b0c0d0e0f";
+        let aad = "0001020304050607";
+        let tag = "16dc76a46d47e1ead537209e8a96d14e";
+        let iv = "000102030405060708090a0b";
+        let pt = "0001020304050607";
+        let ct = "92b657130a74b85a";
+
+        let mut actual_tag = [0; 16];
+        let out = encrypt_aead(
+            Cipher::aes_128_ocb(),
+            &Vec::from_hex(key).unwrap(),
+            Some(&Vec::from_hex(iv).unwrap()),
+            &Vec::from_hex(aad).unwrap(),
+            &Vec::from_hex(pt).unwrap(),
+            &mut actual_tag,
+        )
+        .unwrap();
+
+        assert_eq!(ct, hex::encode(out));
+        assert_eq!(tag, hex::encode(actual_tag));
+
+        let out = decrypt_aead(
+            Cipher::aes_128_ocb(),
+            &Vec::from_hex(key).unwrap(),
+            Some(&Vec::from_hex(iv).unwrap()),
+            &Vec::from_hex(aad).unwrap(),
+            &Vec::from_hex(ct).unwrap(),
+            &Vec::from_hex(tag).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(pt, hex::encode(out));
+    }
+
+    #[test]
+    #[cfg(all(ossl110, not(osslconf = "OPENSSL_NO_OCB")))]
+    fn test_aes_128_ocb_fail() {
+        let key = "000102030405060708090a0b0c0d0e0f";
+        let aad = "0001020304050607";
+        let tag = "16dc76a46d47e1ead537209e8a96d14e";
+        let iv = "000000000405060708090a0b";
+        let ct = "92b657130a74b85a";
+
+        let out = decrypt_aead(
+            Cipher::aes_128_ocb(),
+            &Vec::from_hex(key).unwrap(),
+            Some(&Vec::from_hex(iv).unwrap()),
+            &Vec::from_hex(aad).unwrap(),
+            &Vec::from_hex(ct).unwrap(),
+            &Vec::from_hex(tag).unwrap(),
+        );
+        assert!(out.is_err());
+    }
+
+    #[test]
+    #[cfg(any(ossl110, libressl310))]
     fn test_chacha20() {
         let key = "0000000000000000000000000000000000000000000000000000000000000000";
         let iv = "00000000000000000000000000000000";
@@ -1540,7 +1778,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(ossl110))]
+    #[cfg(any(ossl110, libressl360))]
     fn test_chacha20_poly1305() {
         let key = "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f";
         let iv = "070000004041424344454647";
@@ -1578,5 +1816,103 @@ mod tests {
         )
         .unwrap();
         assert_eq!(pt, hex::encode(out));
+    }
+
+    #[test]
+    #[cfg(not(any(osslconf = "OPENSSL_NO_SEED", ossl300)))]
+    fn test_seed_cbc() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
+        let pt = "5363686f6b6f6c6164656e6b756368656e0a";
+        let ct = "c2edf0fb2eb11bf7b2f39417a8528896d34b24b6fd79e5923b116dfcd2aba5a4";
+        let key = "41414141414141414141414141414141";
+        let iv = "41414141414141414141414141414141";
+
+        cipher_test(super::Cipher::seed_cbc(), pt, ct, key, iv);
+    }
+
+    #[test]
+    #[cfg(not(any(osslconf = "OPENSSL_NO_SEED", ossl300)))]
+    fn test_seed_cfb128() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
+        let pt = "5363686f6b6f6c6164656e6b756368656e0a";
+        let ct = "71d4d25fc1750cb7789259e7f34061939a41";
+        let key = "41414141414141414141414141414141";
+        let iv = "41414141414141414141414141414141";
+
+        cipher_test(super::Cipher::seed_cfb128(), pt, ct, key, iv);
+    }
+
+    #[test]
+    #[cfg(not(any(osslconf = "OPENSSL_NO_SEED", ossl300)))]
+    fn test_seed_ecb() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
+        let pt = "5363686f6b6f6c6164656e6b756368656e0a";
+        let ct = "0263a9cd498cf0edb0ef72a3231761d00ce601f7d08ad19ad74f0815f2c77f7e";
+        let key = "41414141414141414141414141414141";
+        let iv = "41414141414141414141414141414141";
+
+        cipher_test(super::Cipher::seed_ecb(), pt, ct, key, iv);
+    }
+
+    #[test]
+    #[cfg(not(any(osslconf = "OPENSSL_NO_SEED", ossl300)))]
+    fn test_seed_ofb() {
+        #[cfg(ossl300)]
+        let _provider = crate::provider::Provider::try_load(None, "legacy", true).unwrap();
+
+        let pt = "5363686f6b6f6c6164656e6b756368656e0a";
+        let ct = "71d4d25fc1750cb7789259e7f34061930afd";
+        let key = "41414141414141414141414141414141";
+        let iv = "41414141414141414141414141414141";
+
+        cipher_test(super::Cipher::seed_ofb(), pt, ct, key, iv);
+    }
+
+    // GB/T 32907-2016
+    // http://openstd.samr.gov.cn/bzgk/gb/newGbInfo?hcno=7803DE42D3BC5E80B0C3E5D8E873D56A
+    #[test]
+    #[cfg(all(any(ossl111, libressl291), not(osslconf = "OPENSSL_NO_SM4")))]
+    fn test_sm4_ecb() {
+        use std::mem;
+
+        let key = vec![
+            0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
+            0x32, 0x10,
+        ];
+        let pt = vec![
+            0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54,
+            0x32, 0x10,
+        ];
+        let ct = vec![
+            0x68, 0x1e, 0xdf, 0x34, 0xd2, 0x06, 0x96, 0x5e, 0x86, 0xb3, 0xe9, 0x4f, 0x53, 0x6e,
+            0x42, 0x46,
+        ];
+        let ct1 = vec![
+            0x59, 0x52, 0x98, 0xc7, 0xc6, 0xfd, 0x27, 0x1f, 0x04, 0x02, 0xf8, 0x04, 0xc3, 0x3d,
+            0x3f, 0x66,
+        ];
+
+        let block_size = Cipher::sm4_ecb().block_size();
+        let mut c = Crypter::new(Cipher::sm4_ecb(), Mode::Encrypt, &key, None).unwrap();
+        c.pad(false);
+
+        // 1 round
+        let mut r = vec![0; pt.len() + Cipher::sm4_ecb().block_size()];
+        let count = c.update(&pt, &mut r).unwrap();
+        assert_eq!(ct, &r[..count]);
+
+        // 1000000 rounds
+        let mut r1 = vec![0; pt.len() + Cipher::sm4_ecb().block_size()];
+        for _ in 0..999999 {
+            c.update(&r[..block_size], &mut r1).unwrap();
+            mem::swap(&mut r, &mut r1);
+        }
+        assert_eq!(ct1, &r[..count]);
     }
 }

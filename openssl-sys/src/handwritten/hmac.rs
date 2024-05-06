@@ -1,9 +1,9 @@
 use libc::*;
 
-use *;
+use super::super::*;
 
 cfg_if! {
-    if #[cfg(ossl110)] {
+    if #[cfg(any(ossl110, libressl350))] {
         extern "C" {
             pub fn HMAC_CTX_new() -> *mut HMAC_CTX;
             pub fn HMAC_CTX_free(ctx: *mut HMAC_CTX);

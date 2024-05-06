@@ -1,13 +1,17 @@
+use cfg_if::cfg_if;
 use std::io::{Read, Write};
 use std::ops::{Deref, DerefMut};
 
-use dh::Dh;
-use error::ErrorStack;
-use ssl::{
-    HandshakeError, Ssl, SslContext, SslContextBuilder, SslMethod, SslMode, SslOptions, SslRef,
-    SslStream, SslVerifyMode,
+use crate::dh::Dh;
+use crate::error::ErrorStack;
+#[cfg(any(ossl111, libressl340))]
+use crate::ssl::SslVersion;
+use crate::ssl::{
+    HandshakeError, Ssl, SslContext, SslContextBuilder, SslContextRef, SslMethod, SslMode,
+    SslOptions, SslRef, SslStream, SslVerifyMode,
 };
-use version;
+use crate::version;
+use std::net::IpAddr;
 
 const FFDHE_2048: &str = "
 -----BEGIN DH PARAMETERS-----
@@ -20,18 +24,23 @@ ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
 -----END DH PARAMETERS-----
 ";
 
+#[allow(clippy::inconsistent_digit_grouping, clippy::unusual_byte_groupings)]
 fn ctx(method: SslMethod) -> Result<SslContextBuilder, ErrorStack> {
     let mut ctx = SslContextBuilder::new(method)?;
 
-    let mut opts = SslOptions::ALL
-        | SslOptions::NO_COMPRESSION
-        | SslOptions::NO_SSLV2
-        | SslOptions::NO_SSLV3
-        | SslOptions::SINGLE_DH_USE
-        | SslOptions::SINGLE_ECDH_USE;
-    opts &= !SslOptions::DONT_INSERT_EMPTY_FRAGMENTS;
+    cfg_if! {
+        if #[cfg(not(boringssl))] {
+            let mut opts = SslOptions::ALL
+                | SslOptions::NO_COMPRESSION
+                | SslOptions::NO_SSLV2
+                | SslOptions::NO_SSLV3
+                | SslOptions::SINGLE_DH_USE
+                | SslOptions::SINGLE_ECDH_USE;
+            opts &= !SslOptions::DONT_INSERT_EMPTY_FRAGMENTS;
 
-    ctx.set_options(opts);
+            ctx.set_options(opts);
+        }
+    }
 
     let mut mode =
         SslMode::AUTO_RETRY | SslMode::ACCEPT_MOVING_WRITE_BUFFER | SslMode::ENABLE_PARTIAL_WRITE;
@@ -53,9 +62,9 @@ fn ctx(method: SslMethod) -> Result<SslContextBuilder, ErrorStack> {
 /// OpenSSL's default configuration is highly insecure. This connector manages the OpenSSL
 /// structures, configuring cipher suites, session options, hostname verification, and more.
 ///
-/// OpenSSL's built in hostname verification is used when linking against OpenSSL 1.0.2 or 1.1.0,
+/// OpenSSL's built-in hostname verification is used when linking against OpenSSL 1.0.2 or 1.1.0,
 /// and a custom implementation is used when linking against OpenSSL 1.0.1.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SslConnector(SslContext);
 
 impl SslConnector {
@@ -90,6 +99,16 @@ impl SslConnector {
             sni: true,
             verify_hostname: true,
         })
+    }
+
+    /// Consumes the `SslConnector`, returning the inner raw `SslContext`.
+    pub fn into_context(self) -> SslContext {
+        self.0
+    }
+
+    /// Returns a shared reference to the inner raw `SslContext`.
+    pub fn context(&self) -> &SslContextRef {
+        &self.0
     }
 }
 
@@ -157,14 +176,11 @@ impl ConnectConfiguration {
         self.verify_hostname = verify_hostname;
     }
 
-    /// Initiates a client-side TLS session on a stream.
+    /// Returns an `Ssl` configured to connect to the provided domain.
     ///
-    /// The domain is used for SNI and hostname verification if enabled.
-    pub fn connect<S>(mut self, domain: &str, stream: S) -> Result<SslStream<S>, HandshakeError<S>>
-    where
-        S: Read + Write,
-    {
-        if self.sni {
+    /// The domain is used for SNI (if it is not an IP address) and hostname verification if enabled.
+    pub fn into_ssl(mut self, domain: &str) -> Result<Ssl, ErrorStack> {
+        if self.sni && domain.parse::<IpAddr>().is_err() {
             self.ssl.set_hostname(domain)?;
         }
 
@@ -172,7 +188,17 @@ impl ConnectConfiguration {
             setup_verify_hostname(&mut self.ssl, domain)?;
         }
 
-        self.ssl.connect(stream)
+        Ok(self.ssl)
+    }
+
+    /// Initiates a client-side TLS session on a stream.
+    ///
+    /// The domain is used for SNI and hostname verification if enabled.
+    pub fn connect<S>(self, domain: &str, stream: S) -> Result<SslStream<S>, HandshakeError<S>>
+    where
+        S: Read + Write,
+    {
+        self.into_ssl(domain)?.connect(stream)
     }
 }
 
@@ -216,7 +242,7 @@ impl SslAcceptor {
              ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
              DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384"
         )?;
-        #[cfg(ossl111)]
+        #[cfg(any(ossl111, libressl340))]
         ctx.set_ciphersuites(
             "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
         )?;
@@ -228,13 +254,13 @@ impl SslAcceptor {
     /// This corresponds to the modern configuration of version 5 of Mozilla's server side TLS recommendations.
     /// See its [documentation][docs] for more details on specifics.
     ///
-    /// Requires OpenSSL 1.1.1 or newer.
+    /// Requires OpenSSL 1.1.1 or LibreSSL 3.4.0 or newer.
     ///
     /// [docs]: https://wiki.mozilla.org/Security/Server_Side_TLS
-    #[cfg(ossl111)]
+    #[cfg(any(ossl111, libressl340))]
     pub fn mozilla_modern_v5(method: SslMethod) -> Result<SslAcceptorBuilder, ErrorStack> {
         let mut ctx = ctx(method)?;
-        ctx.set_options(SslOptions::NO_SSL_MASK & !SslOptions::NO_TLSV1_3);
+        ctx.set_min_proto_version(Some(SslVersion::TLS1_3))?;
         ctx.set_ciphersuites(
             "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
         )?;
@@ -252,7 +278,7 @@ impl SslAcceptor {
     pub fn mozilla_intermediate(method: SslMethod) -> Result<SslAcceptorBuilder, ErrorStack> {
         let mut ctx = ctx(method)?;
         ctx.set_options(SslOptions::CIPHER_SERVER_PREFERENCE);
-        #[cfg(ossl111)]
+        #[cfg(any(ossl111, libressl340))]
         ctx.set_options(SslOptions::NO_TLSV1_3);
         let dh = Dh::params_from_pem(FFDHE_2048.as_bytes())?;
         ctx.set_tmp_dh(&dh)?;
@@ -282,7 +308,7 @@ impl SslAcceptor {
         ctx.set_options(
             SslOptions::CIPHER_SERVER_PREFERENCE | SslOptions::NO_TLSV1 | SslOptions::NO_TLSV1_1,
         );
-        #[cfg(ossl111)]
+        #[cfg(any(ossl111, libressl340))]
         ctx.set_options(SslOptions::NO_TLSV1_3);
         setup_curves(&mut ctx)?;
         ctx.set_cipher_list(
@@ -300,6 +326,16 @@ impl SslAcceptor {
     {
         let ssl = Ssl::new(&self.0)?;
         ssl.accept(stream)
+    }
+
+    /// Consumes the `SslAcceptor`, returning the inner raw `SslContext`.
+    pub fn into_context(self) -> SslContext {
+        self.0
+    }
+
+    /// Returns a shared reference to the inner raw `SslContext`.
+    pub fn context(&self) -> &SslContextRef {
+        &self.0
     }
 }
 
@@ -329,6 +365,7 @@ impl DerefMut for SslAcceptorBuilder {
 
 cfg_if! {
     if #[cfg(ossl110)] {
+        #[allow(clippy::unnecessary_wraps)]
         fn setup_curves(_: &mut SslContextBuilder) -> Result<(), ErrorStack> {
             Ok(())
         }
@@ -338,8 +375,8 @@ cfg_if! {
         }
     } else {
         fn setup_curves(ctx: &mut SslContextBuilder) -> Result<(), ErrorStack> {
-            use ec::EcKey;
-            use nid::Nid;
+            use crate::ec::EcKey;
+            use crate::nid::Nid;
 
             let curve = EcKey::from_curve_name(Nid::X9_62_PRIME256V1)?;
             ctx.set_tmp_ecdh(&curve)
@@ -354,7 +391,7 @@ cfg_if! {
         }
 
         fn setup_verify_hostname(ssl: &mut SslRef, domain: &str) -> Result<(), ErrorStack> {
-            use x509::verify::X509CheckFlags;
+            use crate::x509::verify::X509CheckFlags;
 
             let param = ssl.param_mut();
             param.set_hostflags(X509CheckFlags::NO_PARTIAL_WILDCARDS);
@@ -370,25 +407,30 @@ cfg_if! {
 
         fn setup_verify_hostname(ssl: &mut Ssl, domain: &str) -> Result<(), ErrorStack> {
             let domain = domain.to_string();
-            ssl.set_ex_data(*verify::HOSTNAME_IDX, domain);
+            let hostname_idx = verify::try_get_hostname_idx()?;
+            ssl.set_ex_data(*hostname_idx, domain);
             Ok(())
         }
 
         mod verify {
             use std::net::IpAddr;
             use std::str;
+            use once_cell::sync::OnceCell;
 
-            use ex_data::Index;
-            use nid::Nid;
-            use ssl::Ssl;
-            use stack::Stack;
-            use x509::{
+            use crate::error::ErrorStack;
+            use crate::ex_data::Index;
+            use crate::nid::Nid;
+            use crate::ssl::Ssl;
+            use crate::stack::Stack;
+            use crate::x509::{
                 GeneralName, X509NameRef, X509Ref, X509StoreContext, X509StoreContextRef,
                 X509VerifyResult,
             };
 
-            lazy_static! {
-                pub static ref HOSTNAME_IDX: Index<Ssl, String> = Ssl::new_ex_index().unwrap();
+            static HOSTNAME_IDX: OnceCell<Index<Ssl, String>> = OnceCell::new();
+
+            pub fn try_get_hostname_idx() -> Result<&'static Index<Ssl, String>, ErrorStack> {
+                HOSTNAME_IDX.get_or_try_init(Ssl::new_ex_index)
             }
 
             pub fn verify_callback(preverify_ok: bool, x509_ctx: &mut X509StoreContextRef) -> bool {
@@ -396,12 +438,14 @@ cfg_if! {
                     return preverify_ok;
                 }
 
+                let hostname_idx =
+                    try_get_hostname_idx().expect("failed to initialize hostname index");
                 let ok = match (
                     x509_ctx.current_cert(),
                     X509StoreContext::ssl_idx()
                         .ok()
                         .and_then(|idx| x509_ctx.ex_data(idx))
-                        .and_then(|ssl| ssl.ex_data(*HOSTNAME_IDX)),
+                        .and_then(|ssl| ssl.ex_data(*hostname_idx)),
                 ) {
                     (Some(x509), Some(domain)) => verify_hostname(domain, &x509),
                     _ => true,
@@ -477,15 +521,10 @@ cfg_if! {
                     hostname = &hostname[..hostname.len() - 1];
                 }
 
-                matches_wildcard(pattern, hostname).unwrap_or_else(|| pattern == hostname)
+                matches_wildcard(pattern, hostname).unwrap_or_else(|| pattern.eq_ignore_ascii_case(hostname))
             }
 
             fn matches_wildcard(pattern: &str, hostname: &str) -> Option<bool> {
-                // internationalized domains can't involved in wildcards
-                if pattern.starts_with("xn--") {
-                    return None;
-                }
-
                 let wildcard_location = match pattern.find('*') {
                     Some(l) => l,
                     None => return None,
@@ -510,8 +549,8 @@ cfg_if! {
                     return None;
                 }
 
-                // Wildcards can only be in the first component
-                if wildcard_location > wildcard_end {
+                // Wildcards can only be in the first component, and must be the entire first label
+                if wildcard_location != 0 || wildcard_end != wildcard_location + 1 {
                     return None;
                 }
 
@@ -520,27 +559,10 @@ cfg_if! {
                     None => return None,
                 };
 
-                // check that the non-wildcard parts are identical
-                if pattern[wildcard_end..] != hostname[hostname_label_end..] {
-                    return Some(false);
-                }
+                let pattern_after_wildcard = &pattern[wildcard_end..];
+                let hostname_after_wildcard = &hostname[hostname_label_end..];
 
-                let wildcard_prefix = &pattern[..wildcard_location];
-                let wildcard_suffix = &pattern[wildcard_location + 1..wildcard_end];
-
-                let hostname_label = &hostname[..hostname_label_end];
-
-                // check the prefix of the first label
-                if !hostname_label.starts_with(wildcard_prefix) {
-                    return Some(false);
-                }
-
-                // and the suffix
-                if !hostname_label[wildcard_prefix.len()..].ends_with(wildcard_suffix) {
-                    return Some(false);
-                }
-
-                Some(true)
+                Some(pattern_after_wildcard.eq_ignore_ascii_case(hostname_after_wildcard))
             }
 
             fn matches_ip(expected: &IpAddr, actual: &[u8]) -> bool {
@@ -548,6 +570,35 @@ cfg_if! {
                     IpAddr::V4(ref addr) => actual == addr.octets(),
                     IpAddr::V6(ref addr) => actual == addr.octets(),
                 }
+            }
+
+            #[test]
+            fn test_dns_match() {
+                use crate::ssl::connector::verify::matches_dns;
+                assert!(matches_dns("website.tld", "website.tld")); // A name should match itself.
+                assert!(matches_dns("website.tld", "wEbSiTe.tLd")); // DNS name matching ignores case of hostname.
+                assert!(matches_dns("wEbSiTe.TlD", "website.tld")); // DNS name matching ignores case of subject.
+
+                assert!(matches_dns("xn--bcher-kva.tld", "xn--bcher-kva.tld")); // Likewise, nothing special to punycode names.
+                assert!(matches_dns("xn--bcher-kva.tld", "xn--BcHer-Kva.tLd")); // And punycode must be compared similarly case-insensitively.
+
+                assert!(matches_dns("*.example.com", "subdomain.example.com")); // Wildcard matching works.
+                assert!(matches_dns("*.eXaMpLe.cOm", "subdomain.example.com")); // Wildcard matching ignores case of subject.
+                assert!(matches_dns("*.example.com", "sUbDoMaIn.eXaMpLe.cOm")); // Wildcard matching ignores case of hostname.
+
+                assert!(!matches_dns("prefix*.example.com", "p.example.com")); // Prefix longer than the label works and does not match.
+                assert!(!matches_dns("*suffix.example.com", "s.example.com")); // Suffix longer than the label works and does not match.
+
+                assert!(!matches_dns("prefix*.example.com", "prefix.example.com")); // Partial wildcards do not work.
+                assert!(!matches_dns("*suffix.example.com", "suffix.example.com")); // Partial wildcards do not work.
+
+                assert!(!matches_dns("prefix*.example.com", "prefixdomain.example.com")); // Partial wildcards do not work.
+                assert!(!matches_dns("*suffix.example.com", "domainsuffix.example.com")); // Partial wildcards do not work.
+
+                assert!(!matches_dns("xn--*.example.com", "subdomain.example.com")); // Punycode domains with wildcard parts do not match.
+                assert!(!matches_dns("xN--*.example.com", "subdomain.example.com")); // And we can't bypass a punycode test with weird casing.
+                assert!(!matches_dns("Xn--*.example.com", "subdomain.example.com")); // And we can't bypass a punycode test with weird casing.
+                assert!(!matches_dns("XN--*.example.com", "subdomain.example.com")); // And we can't bypass a punycode test with weird casing.
             }
         }
     }
